@@ -2,8 +2,11 @@ Project Name: RentEase-Property Rental and Listing Platform
 
 Group Members:
 1.Md Hasanul Bashar (ID:23201222) 
+
 2.Rufaiyah Islam (ID:23301595)
+
 3.Prapon Saha (ID:23201403)
+
 4.Anindya Pandob Rahul (ID:23201630)
 
 #What our project offers:
