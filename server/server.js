@@ -3,9 +3,10 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
 
-const adminRoutes = require('./routes/admin.routes');
-const complaintsRoutes = require('./routes/complaints.routes');
-const listingsRoutes = require('./routes/listings.routes');
+const adminRoutes = require('./features/admin/admin.routes');
+const complaintsRoutes = require('./features/complaints/complaints.routes');
+const listingsRoutes = require('./features/listings/listings.routes');
+
 
 const app = express();
 const PORT = process.env.PORT || 5000;

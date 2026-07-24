@@ -2,9 +2,10 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 
-const Listing = require('../models/Listing');
-const User = require('../models/User');
-const { authenticate } = require('../middleware/auth.middleware');
+const Listing = require('./Listing');
+const User = require('../auth/User');
+const { authenticate } = require('../auth/auth.middleware');
+
 
 // Helper to resolve user ID (handles real ObjectIds vs demo-mode mock IDs)
 const resolveLandlordId = async (user) => {

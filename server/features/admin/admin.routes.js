@@ -1,10 +1,11 @@
 const express = require('express');
 const router = express.Router();
 
-const User      = require('../models/User');
-const Listing   = require('../models/Listing');
-const Complaint = require('../models/Complaint');
-const { authenticate, requireAdmin } = require('../middleware/auth.middleware');
+const User      = require('../auth/User');
+const Listing   = require('../listings/Listing');
+const Complaint = require('../complaints/Complaint');
+const { authenticate, requireAdmin } = require('../auth/auth.middleware');
+
 
 // All routes in this file require a valid admin token
 router.use(authenticate, requireAdmin);

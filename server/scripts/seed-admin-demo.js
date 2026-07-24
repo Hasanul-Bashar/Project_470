@@ -22,9 +22,10 @@ require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const mongoose = require('mongoose');
 const bcrypt   = require('bcryptjs');
 
-const User      = require('../models/User');
-const Listing   = require('../models/Listing');
-const Complaint = require('../models/Complaint');
+const User      = require('../features/auth/User');
+const Listing   = require('../features/listings/Listing');
+const Complaint = require('../features/complaints/Complaint');
+
 
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/rentease';
 

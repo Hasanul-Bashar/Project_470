@@ -2,9 +2,10 @@ const express  = require('express');
 const mongoose = require('mongoose');
 const router   = express.Router();
 
-const Complaint = require('../models/Complaint');
-const User      = require('../models/User');
-const { authenticate, requireAdmin } = require('../middleware/auth.middleware');
+const Complaint = require('./Complaint');
+const User      = require('../auth/User');
+const { authenticate, requireAdmin } = require('../auth/auth.middleware');
+
 
 // ─────────────────────────────────────────────────────────────
 // POST /api/complaints
