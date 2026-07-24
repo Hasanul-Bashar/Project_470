@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
 import { getListings, createListing, updateListingAvailability } from '../services/listingsApi';
+import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Modal';
 import AvailabilityCalendar from '../components/admin/AvailabilityCalendar';
 
 export default function LandlordListings() {
+  const { user } = useAuth();
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [isPendingVerification, setIsPendingVerification] = useState(false);
   
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -29,19 +32,65 @@ export default function LandlordListings() {
   const fetchListings = async () => {
     try {
       setLoading(true);
+      setError('');
+      setIsPendingVerification(false);
       const res = await getListings();
       setListings(res.data);
     } catch (err) {
-      setError('Failed to load listings.');
-      showToast('Error loading properties', 'error');
+      if (err.response && err.response.status === 403 && err.response.data?.status === 'pending_verification') {
+        setIsPendingVerification(true);
+      } else {
+        setError('Failed to load listings.');
+        showToast('Error loading properties', 'error');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchListings();
-  }, []);
+    if (user?.role === 'landlord') {
+      fetchListings();
+    }
+  }, [user?.role]);
+
+  // ── Role Gate ─────────────────────────────────────────────────
+  if (user?.role !== 'landlord') {
+    return (
+      <div className="container">
+        <div className="empty-state" style={{ marginTop: '5rem' }}>
+          <div className="empty-state-icon">🔒</div>
+          <h2 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '.5rem' }}>
+            Landlord Access Required
+          </h2>
+          <div className="empty-state-text">
+            Use the <strong style={{ color: 'var(--green)' }}>🏠 Landlord</strong> toggle
+            in the top-right header to switch roles and manage listings.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Pending Verification Screen ────────────────────────────────
+  if (isPendingVerification) {
+    return (
+      <div className="container">
+        <div className="empty-state" style={{ marginTop: '5rem' }}>
+          <div className="empty-state-icon">⏳</div>
+          <h2 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '.5rem' }}>
+            Account Pending Approval
+          </h2>
+          <div className="empty-state-text" style={{ maxWidth: '520px', margin: '0 auto', lineHeight: '1.6' }}>
+            Your landlord account (<strong style={{ color: 'var(--green)' }}>{user.email}</strong>) is currently awaiting admin verification.
+            <br /><br />
+            Please toggle to the <strong style={{ color: 'var(--purple)' }}>🛡 Admin</strong> role in the header and approve your landlord account in the verification queue first.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
 
   const handleAddListing = async (e) => {
     e.preventDefault();

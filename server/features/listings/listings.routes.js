@@ -27,6 +27,16 @@ router.get('/', authenticate, async (req, res) => {
       if (!landlordId) {
         return res.status(404).json({ message: 'Landlord user not found' });
       }
+
+      // Enforce admin verification check
+      const dbUser = await User.findById(landlordId);
+      if (dbUser && !dbUser.isVerified) {
+        return res.status(403).json({
+          status: 'pending_verification',
+          message: 'Your landlord account is awaiting admin approval',
+        });
+      }
+
       const listings = await Listing.find({ landlordId }).sort({ createdAt: -1 });
       return res.json(listings);
     }
@@ -57,6 +67,15 @@ router.post('/', authenticate, async (req, res) => {
       return res.status(404).json({ message: 'Landlord user not found' });
     }
 
+    // Enforce admin verification check
+    const dbUser = await User.findById(landlordId);
+    if (dbUser && !dbUser.isVerified) {
+      return res.status(403).json({
+        status: 'pending_verification',
+        message: 'Your landlord account is awaiting admin approval',
+      });
+    }
+
     const listing = new Listing({
       title,
       location,
@@ -67,6 +86,7 @@ router.post('/', authenticate, async (req, res) => {
       status: 'pending', // Awaits admin approval
       bookedDates: [],
     });
+
 
     await listing.save();
     res.status(201).json({ message: 'Listing submitted successfully', listing });
