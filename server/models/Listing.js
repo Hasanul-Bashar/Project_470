@@ -28,9 +28,13 @@ const ListingSchema = new mongoose.Schema(
       ref: 'User',
       required: true,
     },
+
+    /** Dates marked as booked/unavailable by landlord (format YYYY-MM-DD) */
+    bookedDates: [{ type: String }],
   },
   { timestamps: true }
 );
 
 // Defensive export — safe to import across merged team branches
 module.exports = mongoose.models.Listing || mongoose.model('Listing', ListingSchema);
+

@@ -5,6 +5,7 @@ require('dotenv').config();
 
 const adminRoutes = require('./routes/admin.routes');
 const complaintsRoutes = require('./routes/complaints.routes');
+const listingsRoutes = require('./routes/listings.routes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -36,6 +37,8 @@ app.use(async (req, res, next) => {
 // ── Routes ────────────────────────────────────────────────────
 app.use('/api/admin', adminRoutes);
 app.use('/api/complaints', complaintsRoutes);
+app.use('/api/listings', listingsRoutes);
+
 
 // Health check
 app.get('/api/health', (_req, res) => {

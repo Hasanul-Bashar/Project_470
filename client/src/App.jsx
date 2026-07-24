@@ -3,6 +3,7 @@ import { AuthProvider } from './context/AuthContext';
 import Header from './components/Header';
 import AdminDashboard from './pages/AdminDashboard';
 import ComplaintsPage from './pages/ComplaintsPage';
+import LandlordListings from './pages/LandlordListings';
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
             {/* Default → admin dashboard */}
             <Route path="/" element={<Navigate to="/admin" replace />} />
             <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/listings" element={<LandlordListings />} />
             <Route path="/complaints" element={<ComplaintsPage />} />
           </Routes>
         </div>
@@ -21,5 +23,6 @@ function App() {
     </BrowserRouter>
   );
 }
+
 
 export default App;

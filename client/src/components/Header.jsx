@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
  */
 export default function Header() {
   const { user, toggleRole } = useAuth();
+  const isLandlord = user?.role === 'landlord';
   const isAdmin = user?.role === 'admin';
 
   return (
@@ -19,13 +20,24 @@ export default function Header() {
 
         {/* Nav */}
         <nav className="nav">
-          <NavLink
-            to="/admin"
-            id="nav-admin"
-            className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
-          >
-            Admin Dashboard
-          </NavLink>
+          {isAdmin && (
+            <NavLink
+              to="/admin"
+              id="nav-admin"
+              className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+            >
+              Admin Dashboard
+            </NavLink>
+          )}
+          {isLandlord && (
+            <NavLink
+              to="/listings"
+              id="nav-listings"
+              className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+            >
+              My Listings
+            </NavLink>
+          )}
           <NavLink
             to="/complaints"
             id="nav-complaints"
@@ -44,10 +56,13 @@ export default function Header() {
             onClick={toggleRole}
             title={`Currently ${user?.role}. Click to switch.`}
           >
-            <span className={`role-option${!isAdmin ? ' active-user' : ''}`}>
+            <span className={`role-option${user?.role === 'user' ? ' active-user' : ''}`}>
               👤 User
             </span>
-            <span className={`role-option${isAdmin ? ' active-admin' : ''}`}>
+            <span className={`role-option${user?.role === 'landlord' ? ' active-landlord' : ''}`}>
+              🏠 Landlord
+            </span>
+            <span className={`role-option${user?.role === 'admin' ? ' active-admin' : ''}`}>
               🛡 Admin
             </span>
           </button>
@@ -56,3 +71,4 @@ export default function Header() {
     </header>
   );
 }
+

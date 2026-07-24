@@ -26,6 +26,13 @@ const DEMO_ADMIN = {
   role:  'admin',
 };
 
+const DEMO_LANDLORD = {
+  id:    'demo-landlord-001',
+  name:  'Alice Landlord',
+  email: 'alice.rahman@landlord.com',
+  role:  'landlord',
+};
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
 
@@ -41,12 +48,20 @@ export function AuthProvider({ children }) {
     setUser(DEMO_USER);
   }, []);
 
-  /** Flip between User ↔ Admin and persist the new token */
+  /** Flip between User ↔ Landlord ↔ Admin and persist the new token */
   const toggleRole = () => {
-    const next = user?.role === 'admin' ? DEMO_USER : DEMO_ADMIN;
+    let next;
+    if (user?.role === 'user') {
+      next = DEMO_LANDLORD;
+    } else if (user?.role === 'landlord') {
+      next = DEMO_ADMIN;
+    } else {
+      next = DEMO_USER;
+    }
     localStorage.setItem('mock_token', encodeToken(next));
     setUser(next);
   };
+
 
   /** Returns the raw base64 token string (used by Axios interceptors) */
   const getToken = () => localStorage.getItem('mock_token') || '';
