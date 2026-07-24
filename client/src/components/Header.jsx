@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -14,16 +13,7 @@ export default function Header() {
   const isLandlord = user?.role === 'landlord';
   const isAdmin = user?.role === 'admin';
 
-  // Auto-redirect on role switcher toggle to prevent dashboard mixing
-  useEffect(() => {
-    if (user?.role === 'admin') {
-      navigate('/admin');
-    } else if (user?.role === 'landlord') {
-      navigate('/listings');
-    } else if (user?.role === 'user') {
-      navigate('/complaints');
-    }
-  }, [user?.role, navigate]);
+  // Note: Auto-redirect on role switcher toggle is now handled in AuthContext.jsx
 
 
   return (

@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const AuthContext = createContext(null);
 
@@ -35,6 +36,7 @@ const DEMO_LANDLORD = {
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
+  const navigate = useNavigate();
 
   // On mount: restore role from localStorage, or default to User
   useEffect(() => {
@@ -51,15 +53,20 @@ export function AuthProvider({ children }) {
   /** Flip between User ↔ Landlord ↔ Admin and persist the new token */
   const toggleRole = () => {
     let next;
+    let nextPath;
     if (user?.role === 'user') {
       next = DEMO_LANDLORD;
+      nextPath = '/listings';
     } else if (user?.role === 'landlord') {
       next = DEMO_ADMIN;
+      nextPath = '/admin';
     } else {
       next = DEMO_USER;
+      nextPath = '/complaints';
     }
     localStorage.setItem('mock_token', encodeToken(next));
     setUser(next);
+    navigate(nextPath);
   };
 
 
