@@ -10,12 +10,28 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/rentease';
 
-// ── Middleware ────────────────────────────────────────────────
-app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000'],
-  credentials: true,
-}));
+// ── CORS & Body Parsing ───────────────────────────────────────
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
+
+// ── Serverless Mongoose Connection Cache ───────────────────────
+let isConnected = false;
+const connectDB = async () => {
+  if (isConnected && mongoose.connection.readyState === 1) return;
+  try {
+    const db = await mongoose.connect(MONGO_URI);
+    isConnected = db.connections[0].readyState === 1;
+    console.log('✅ MongoDB connected');
+  } catch (err) {
+    console.error('❌ MongoDB connection error:', err.message);
+  }
+};
+
+// Middleware to ensure DB connection on every request
+app.use(async (req, res, next) => {
+  await connectDB();
+  next();
+});
 
 // ── Routes ────────────────────────────────────────────────────
 app.use('/api/admin', adminRoutes);
@@ -31,17 +47,13 @@ app.use((_req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
-// ── Connect & Start ───────────────────────────────────────────
-mongoose
-  .connect(MONGO_URI)
-  .then(() => {
-    console.log('✅ MongoDB connected →', MONGO_URI);
+// ── Start Server locally (if not imported by Vercel) ──────────
+if (require.main === module) {
+  connectDB().then(() => {
     app.listen(PORT, () => {
       console.log(`🚀 Server running on http://localhost:${PORT}`);
-      console.log('   API prefix: /api/admin  |  /api/complaints');
     });
-  })
-  .catch((err) => {
-    console.error('❌ MongoDB connection failed:', err.message);
-    process.exit(1);
   });
+}
+
+module.exports = app;
