@@ -6,7 +6,8 @@ require('dotenv').config();
 const adminRoutes = require('./features/admin/admin.routes');
 const complaintsRoutes = require('./features/complaints/complaints.routes');
 const listingsRoutes = require('./features/listings/listings.routes');
-
+const authRoutes = require('./features/auth/auth.routes');
+const bookingsRoutes = require('./features/bookings/bookings.routes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -36,9 +37,11 @@ app.use(async (req, res, next) => {
 });
 
 // ── Routes ────────────────────────────────────────────────────
+app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/complaints', complaintsRoutes);
 app.use('/api/listings', listingsRoutes);
+app.use('/api/bookings', bookingsRoutes);
 
 
 // Health check

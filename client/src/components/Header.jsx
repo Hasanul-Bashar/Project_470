@@ -1,28 +1,25 @@
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-/**
- * Header — fixed top bar with:
- *   - RentEase brand logo
- *   - Navigation links (Admin Dashboard, Complaints)
- *   - Role Switcher pill to toggle between User ↔ Admin for the live demo
- */
 export default function Header() {
-  const { user, toggleRole } = useAuth();
-  const navigate = useNavigate();
+  const { user, openRoleModal, logout } = useAuth();
+
   const isLandlord = user?.role === 'landlord';
   const isAdmin = user?.role === 'admin';
 
-  // Note: Auto-redirect on role switcher toggle is now handled in AuthContext.jsx
-
+  // Greeting Logic based on user & initial signup vs returning login
+  const displayName = user?.firstName || user?.name || 'User';
+  const greeting = user?.isFirstLogin ? `Hi, ${displayName}!` : `Welcome back, ${displayName}!`;
 
   return (
     <header className="header">
       <div className="header-inner">
-        {/* Brand */}
-        <a href="/admin" className="logo">🏠 RentEase</a>
+        {/* Brand Logo */}
+        <a href={isAdmin ? '/admin' : isLandlord ? '/landlord-dashboard' : '/user-dashboard'} className="logo">
+          🏠 RentEase
+        </a>
 
-        {/* Nav */}
+        {/* Navigation Links */}
         <nav className="nav">
           {isAdmin && (
             <NavLink
@@ -35,11 +32,20 @@ export default function Header() {
           )}
           {isLandlord && (
             <NavLink
-              to="/listings"
+              to="/landlord-dashboard"
               id="nav-listings"
               className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
             >
-              My Listings
+              Landlord Dashboard
+            </NavLink>
+          )}
+          {user?.role === 'user' && (
+            <NavLink
+              to="/user-dashboard"
+              id="nav-user-dashboard"
+              className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+            >
+              Rental Dashboard
             </NavLink>
           )}
           <NavLink
@@ -51,28 +57,51 @@ export default function Header() {
           </NavLink>
         </nav>
 
-        {/* Role Switcher */}
-        <div className="role-switcher">
-          <span className="role-label">Viewing as:</span>
-          <button
-            id="role-toggle-btn"
-            className="role-toggle"
-            onClick={toggleRole}
-            title={`Currently ${user?.role}. Click to switch.`}
-          >
-            <span className={`role-option${user?.role === 'user' ? ' active-user' : ''}`}>
-              👤 User
-            </span>
-            <span className={`role-option${user?.role === 'landlord' ? ' active-landlord' : ''}`}>
-              🏠 Landlord
-            </span>
-            <span className={`role-option${user?.role === 'admin' ? ' active-admin' : ''}`}>
-              🛡 Admin
-            </span>
-          </button>
+        {/* Header Right Bar: User Greeting, Role Badge & Gateway Trigger */}
+        <div className="header-user-bar">
+          {user ? (
+            <>
+              {/* Greeting Tag */}
+              <div className="user-greeting-badge" title={greeting}>
+                <span className="greeting-text">{greeting}</span>
+              </div>
+
+              {/* Role Pill */}
+              <div className="current-role-badge">
+                {user.role === 'user' && <span className="role-pill user-pill">👤 User</span>}
+                {user.role === 'landlord' && <span className="role-pill landlord-pill">🏠 Landlord</span>}
+                {user.role === 'admin' && <span className="role-pill admin-pill">🛡 Admin</span>}
+              </div>
+
+              {/* Switch Role Button */}
+              <button
+                id="role-switch-btn"
+                className="role-switch-trigger-btn"
+                onClick={() => openRoleModal()}
+                title="Switch Role or Change Account"
+              >
+                🔄 Switch Role
+              </button>
+
+              {/* Logout Button */}
+              <button
+                className="logout-btn"
+                onClick={logout}
+                title="Log Out"
+              >
+                Logout
+              </button>
+            </>
+          ) : (
+            <button
+              className="login-trigger-btn"
+              onClick={() => openRoleModal()}
+            >
+              Log In / Select Role
+            </button>
+          )}
         </div>
       </div>
     </header>
   );
 }
-

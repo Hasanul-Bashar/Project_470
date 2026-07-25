@@ -30,6 +30,14 @@ const UserSchema = new mongoose.Schema(
       enum: ['pending', 'approved', 'rejected'],
       default: 'pending',
     },
+
+    /** OTP Verification fields */
+    isOtpVerified: { type: Boolean, default: false },
+    otpCode:       { type: String, default: null },
+    otpExpiresAt:  { type: Date, default: null },
+
+    /** Flag for first initial login vs returning login greeting */
+    isFirstLogin:  { type: Boolean, default: true },
   },
   { timestamps: true }
 );

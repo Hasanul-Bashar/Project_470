@@ -3,16 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import StatCards from '../components/admin/StatCards';
 import LandlordTable from '../components/admin/LandlordTable';
 import ListingQueue from '../components/admin/ListingQueue';
+import BookingQueue from '../components/admin/BookingQueue';
 
-/**
- * AdminDashboard — assembles the three admin management sections:
- *   1. StatCards      — live KPI overview
- *   2. LandlordTable  — landlord verification queue
- *   3. ListingQueue   — listing approval queue
- *
- * Shown only when role === 'admin'. Non-admins see a friendly lock screen
- * with instructions to use the role switcher.
- */
 export default function AdminDashboard() {
   const { user } = useAuth();
 
@@ -42,17 +34,21 @@ export default function AdminDashboard() {
     <div className="container">
       <h1 className="page-title">Admin Dashboard</h1>
       <p className="page-subtitle">
-        Platform overview — manage landlord verification, listing approvals, and dispute stats
+        Platform overview — manage landlord verification, listing approvals, booking requests, and dispute stats
       </p>
 
       {/* ── 1. KPI Stat Cards ─────────────────────────────────── */}
       <StatCards key={statsKey} />
 
-      {/* ── 2. Landlord Verification ──────────────────────────── */}
+      {/* ── 2. Booking Approval Queue ─────────────────────────── */}
+      <h2 className="section-title">Tenant Booking Approval Queue</h2>
+      <BookingQueue onAction={refreshStats} />
+
+      {/* ── 3. Landlord Verification ──────────────────────────── */}
       <h2 className="section-title">Landlord Verification</h2>
       <LandlordTable onAction={refreshStats} />
 
-      {/* ── 3. Listing Approval Queue ─────────────────────────── */}
+      {/* ── 4. Listing Approval Queue ─────────────────────────── */}
       <h2 className="section-title">Listing Approval Queue</h2>
       <ListingQueue onAction={refreshStats} />
     </div>
