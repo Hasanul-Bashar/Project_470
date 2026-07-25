@@ -1,6 +1,10 @@
-# Project Name: RentEase — Property Rental and Listing Platform
+# RentEase — Property Rental and Listing Platform
 
-## Group Members:
+> A comprehensive full-stack MERN application connecting Tenants, Landlords, and Administrators into a secure, feature-rich property rental ecosystem.
+
+---
+
+## 👥 Project Team & Group Members
 1. **Md Hasanul Bashar** (ID: 23201222)
 2. **Rufaiyah Islam** (ID: 23301595)
 3. **Prapon Saha** (ID: 23201403)
@@ -8,149 +12,174 @@
 
 ---
 
-### What Our Project Offers:
-RentEase is a comprehensive property rental platform that connects tenants, landlords, and administrators in one secure and user-friendly system. Tenants can search and filter properties, explore nearby locations, save favorites, compare listings, submit rental requests, make online payments, and communicate with landlords.
+## ✨ Key Features & Capabilities
 
-Landlords can create and manage property listings, set availability, handle booking requests, track rent and maintenance, communicate with tenants, and monitor property performance through analytics. The platform also includes Stripe payment integration, rental agreement generation with document verification, reviews and ratings, AI-powered property search, trust scoring, notifications, and admin tools for verification and dispute management.
-
-Overall, RentEase simplifies the entire rental process—from property discovery and booking to payments and rental management.
-
----
-
-# RentEase — Admin Dashboard & Complaint Management
-
-> **Faculty Demo Build** — MERN stack features authored as a standalone module
-> that can be cleanly merged into the team's shared repository.
+### 🔐 1. Authentication & Role Gateway System
+- **Explicit Role Selection Gateway**: Interactive modal supporting explicit role switching between `[ User / Tenant | Landlord | Admin ]`.
+- **Nodemailer SMTP Email OTP Verification**:
+  - 5-Digit numeric OTP generated and sent to user email upon signup using Nodemailer.
+  - Tailored HTML Welcome Email dispatched upon successful account verification.
+  - Secure verification: OTP codes expire in 10 minutes and are strictly delivered to user inbox.
+- **Admin Security**: Admin login verified against secure environment variables (`ADMIN_EMAIL` and `ADMIN_PASSWORD`).
+- **Dynamic Header Greetings**: Displays `"Hi, <Name>!"` on initial signup and `"Welcome back, <Name>!"` on returning sessions.
 
 ---
 
-## ⚠️ Prerequisite — MongoDB Connection
-
-The seed script and the server both need a running MongoDB instance (Local or Atlas).
-
-### 🌐 Option A — MongoDB Atlas (Free Cloud, Recommended)
-1. Open `server/.env` and paste your Atlas connection string:
-   ```env
-   MONGO_URI=mongodb+srv://youruser:yourpassword@cluster0.xxxxx.mongodb.net/rentease?retryWrites=true&w=majority
-   ```
-
-### 💻 Option B — Local MongoDB
-1. Make sure MongoDB Community Server is installed and running locally.
-2. `server/.env`:
-   ```env
-   MONGO_URI=mongodb://localhost:27017/rentease
-   ```
+### 💻 2. Role-Specific Dashboards & Navigation
+- **👤 Tenant / User Dashboard (`/user-dashboard`)**:
+  - Browse verified rental properties with prices (BDT), descriptions, amenities, and location tags.
+  - Real-time search bar for filtering by neighborhood, title, or keywords.
+  - **"Add Wishes to Rent" (Wishlist)**: Save favorite properties to personal wishlist list (`My Wishes to Rent`).
+  - **Interactive Availability Calendar**: Preview booked vs open dates on property calendars.
+  - Submit rental booking requests for specific dates.
+- **🏠 Landlord Dashboard (`/landlord-dashboard`)**:
+  - Create property listings with price, location, description, and amenity tags.
+  - View account verification status (`PENDING_VERIFICATION` vs `APPROVED`).
+  - Interactive **Visual Availability Calendar**: Block or unblock property dates.
+  - Review incoming tenant booking requests and approve/reject them.
+- **🛡 Admin Dashboard (`/admin`)**:
+  - Live KPI Stat Cards overviewing platform counts.
+  - **Landlord Verification Queue**: Approve or reject new landlord account applications.
+  - **Listing Approval Queue**: Review and approve property listings submitted by landlords.
+  - **Dispute / Complaint Management**: Track, review, and resolve platform complaints.
+  - **Tenant Booking Approval Queue**: Final platform authorization for tenant rental bookings.
 
 ---
 
-## 🚀 Quick Start
+### 🔄 3. 3-Tier Multi-Role Booking Workflow
+```mermaid
+graph TD
+    A["👤 Tenant selects dates & submits request"] --> B["Status: pending_landlord"]
+    B --> C["🏠 Landlord reviews in Landlord Dashboard"]
+    C -->|Landlord Approves| D["Status: pending_admin"]
+    D --> E["Tenant Notification: 'Landlord Approved — Admin Approval Pending ⏳'"]
+    D --> F["🛡 Admin reviews in Admin Queue"]
+    F -->|Admin Final Approves| G["Status: approved"]
+    G --> H["📅 Dates auto-reserved on Property Calendar (RED)"]
+    G --> I["🎉 Final Notifications sent to Tenant & Landlord"]
+```
 
-### Step 1 — Install Dependencies
+---
+
+### 🎨 4. High-Contrast Dark Glassmorphism UI
+- Modern dark-navy glassmorphic theme (`rgba(13, 20, 37, 0.85)` with blur backdrop filter).
+- High-contrast text & badges for high legibility across dark backgrounds.
+- **Role-Distinct Glowing Top-Border Accents**:
+  - 🟣 Tenant: `borderTop: 3px solid var(--purple)`
+  - 🟢 Landlord: `borderTop: 3px solid var(--green)`
+  - 🩵 Admin: `borderTop: 3px solid var(--teal)`
+- **"Mark All as Read" Dismissal**:
+  - Click **"✔️ Mark All as Read"** to clear notification panels.
+  - Toggle **"👁️ Show Dismissed"** to view or restore historical notification logs.
+
+---
+
+## 🛠 Technology Stack
+
+### Frontend
+- **Framework**: React 18, Vite
+- **Routing**: React Router DOM (v6) with dynamic root redirection
+- **HTTP Client**: Axios
+- **Styling**: Vanilla CSS with Design System Tokens, Glassmorphism, CSS Grid, and Animations
+
+### Backend
+- **Runtime**: Node.js, Express.js
+- **Database**: MongoDB / Mongoose ODM (Atlas Cloud & Local support)
+- **Authentication**: Bcryptjs, JWT Token state
+- **Email Service**: Nodemailer (Gmail SMTP SSL)
+- **Environment**: Dotenv
+
+---
+
+## 🚀 Local Development Setup
+
+### 1. Clone Repository
 ```bash
-# Terminal 1 — Server
+git clone https://github.com/Hasanul-Bashar/Project_470.git
+cd Project_470
+```
+
+### 2. Configure Environment Variables
+Create a `server/.env` file:
+```env
+PORT=5000
+MONGO_URI=mongodb+srv://<username>:<password>@cluster0.mongodb.net/rentease?retryWrites=true&w=majority
+ADMIN_EMAIL=admin@rentease.com
+ADMIN_PASSWORD=admin12345
+SYSTEM_EMAIL=rahul.academic321@gmail.com
+SYSTEM_EMAIL_PASSWORD=gxdekbrtidlrxhgh
+```
+
+### 3. Install Dependencies & Start Servers
+```bash
+# Terminal 1 — Backend API
 cd server
 npm install
+npm run dev
 
-# Terminal 2 — Client
+# Terminal 2 — Frontend App
 cd client
 npm install
+npm run dev
 ```
-
-### Step 2 — Seed Demo Data
-```bash
-# Run from the /server directory
-npm run seed:admin
-```
-
-Expected output:
-```
-✅ Connected to MongoDB
-🗑️  Removing previous demo records…
-👤 Admin created:      admin@rentease.com  /  Admin1234
-👤 Demo user created:  demo.user@rentease.com  /  User1234
-🏢 3 Landlords created (unverified)
-📋 3 Listings created  (status: pending)
-📣 3 Complaints created (Pending | In Review | Resolved)
-🌱 Seed complete! Open http://localhost:5173
-```
-
-### Step 3 — Start Both Servers
-```bash
-# Terminal 1 — Backend (Express on :5000)
-cd server && npm run dev
-
-# Terminal 2 — Frontend (Vite on :5173)
-cd client && npm run dev
-```
-
-Open **http://localhost:5173**
+Open **http://localhost:5173** in your browser.
 
 ---
 
-## 🔄 Live Demo Role Switcher
+## 📡 API Endpoints Reference
 
-The **top-right pill toggle** in the header switches between roles without a login page:
+### 🔐 Authentication (`/api/auth`)
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/auth/signup` | Registers new User/Landlord & sends 5-digit OTP |
+| `POST` | `/api/auth/verify-otp` | Verifies email OTP & activates account |
+| `POST` | `/api/auth/login` | Authenticates User, Landlord, or Admin |
+| `POST` | `/api/auth/resend-otp` | Resends new 5-digit OTP email |
 
-| Role | What You See |
-|---|---|
-| 👤 **User** (default) | Complaint submission form |
-| 🛡 **Admin** | Dashboard + Landlord & Listing queues + Dispute table |
+### 🏠 Listings (`/api/listings`)
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/listings` | Get property listings |
+| `POST` | `/api/listings` | Landlord submits property listing |
+| `PATCH` | `/api/listings/:id/availability` | Landlord updates booked dates calendar |
 
----
+### 📅 Bookings (`/api/bookings`)
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/bookings` | Tenant submits date booking request |
+| `GET` | `/api/bookings` | Fetch bookings (filtered by role/user) |
+| `PATCH` | `/api/bookings/:id/landlord-approve` | Landlord approves booking request |
+| `PATCH` | `/api/bookings/:id/admin-approve` | Admin final approves booking & updates calendar |
+| `PATCH` | `/api/bookings/:id/reject` | Rejects booking request |
 
-## 📡 API Reference
-
-### Admin Routes — `/api/admin` (requires Admin role)
+### 🛡 Admin (`/api/admin`)
 | Method | Endpoint | Description |
 |---|---|---|
 | `GET` | `/api/admin/stats` | Platform KPI counts |
 | `GET` | `/api/admin/landlords/pending` | Unverified landlord list |
-| `PATCH` | `/api/admin/landlords/:id/verify` | `{ action: "approve"\|"reject" }` |
+| `PATCH` | `/api/admin/landlords/:id/verify` | Approve or reject landlord account |
 | `GET` | `/api/admin/listings/pending` | Pending listing queue |
-| `PATCH` | `/api/admin/listings/:id/status` | `{ status: "approved"\|"rejected" }` |
+| `PATCH` | `/api/admin/listings/:id/status` | Approve or reject listing |
 
-### Complaints Routes — `/api/complaints`
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `POST` | `/api/complaints` | Any user | Submit a complaint |
-| `GET` | `/api/complaints?status=` | Admin | List with optional status filter |
-| `GET` | `/api/complaints/:id` | Admin | Full complaint detail |
-| `PATCH` | `/api/complaints/:id/status` | Admin | Update status + resolution note |
+### 📣 Complaints (`/api/complaints`)
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/complaints` | Submit platform complaint |
+| `GET` | `/api/complaints` | List complaints (Admin) |
+| `PATCH` | `/api/complaints/:id/status` | Update complaint status & resolution note |
 
 ---
 
-## 🗂 Folder Structure
+## 🌐 Deployment (Vercel)
 
+This repository is configured for direct Vercel deployment via `vercel.json`:
+- **Serverless API**: `server/server.js` (`/api/*`)
+- **Static Frontend**: `client/` built with Vite (`dist`)
+
+To deploy updates, push to `main` branch:
+```bash
+git add .
+git commit -m "update project features and documentation"
+git push origin main
 ```
-rentease/
-├── client/                    ← Vite + React (port :5173)
-│   └── src/
-│       ├── context/AuthContext.jsx      ← Mock JWT role switcher
-│       ├── services/adminApi.js         ← Admin Axios calls
-│       ├── services/complaintsApi.js    ← Complaints Axios calls
-│       ├── components/
-│       │   ├── Header.jsx
-│       │   ├── Modal.jsx                ← Reusable overlay
-│       │   ├── admin/
-│       │   │   ├── StatCards.jsx
-│       │   │   ├── LandlordTable.jsx
-│       │   │   └── ListingQueue.jsx
-│       │   └── complaints/
-│       │       ├── ComplaintForm.jsx
-│       │       ├── DisputeTable.jsx
-│       │       └── DisputeDetailModal.jsx
-│       └── pages/
-│           ├── AdminDashboard.jsx
-│           └── ComplaintsPage.jsx
-│
-└── server/                    ← Express + Mongoose (port :5000)
-    ├── models/
-    │   ├── User.js             ← Defensive export
-    │   ├── Listing.js          ← Defensive export
-    │   └── Complaint.js        ← Defensive export
-    ├── routes/
-    │   ├── admin.routes.js
-    │   └── complaints.routes.js
-    ├── middleware/auth.middleware.js
-    └── scripts/seed-admin-demo.js
-```
+Vercel automatically builds and deploys the latest version!
