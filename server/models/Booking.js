@@ -16,15 +16,8 @@ const BookingSchema = new mongoose.Schema(
 
     landlordId: { type: String, required: true },
 
-    /** Array of YYYY-MM-DD date strings */
     dates: [{ type: String, required: true }],
 
-    /**
-     * 'pending_landlord' -> waiting for Landlord to approve
-     * 'pending_admin'    -> Landlord approved, waiting for Admin final approval
-     * 'approved'         -> Admin approved (dates added to Listing.bookedDates)
-     * 'rejected'         -> Declined by Landlord or Admin
-     */
     status: {
       type: String,
       enum: ['pending_landlord', 'pending_admin', 'approved', 'rejected'],

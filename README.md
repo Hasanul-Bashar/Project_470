@@ -12,6 +12,58 @@
 
 ---
 
+## 🏛 Software Architecture — Model-View-Controller (MVC) Pattern
+
+RentEase is strictly engineered using the **Model-View-Controller (MVC) Architecture Pattern**:
+
+```
+                       ┌──────────────────────────────────────────────┐
+                       │                   VIEW                       │
+                       │           (React 18 + Vite SPA)              │
+                       │   Client UI, User/Landlord/Admin Views       │
+                       └──────────────────────┬───────────────────────┘
+                                              │
+                              User Actions    │ HTTP REST API Responses
+                              (Forms, Clicks) │ (JSON)
+                                              ▼
+                       ┌──────────────────────────────────────────────┐
+                       │                CONTROLLER                    │
+                       │          (Express Controllers)               │
+                       │  auth, listing, booking, admin Controllers   │
+                       └──────────────────────┬───────────────────────┘
+                                              │
+                             Manipulates/     │ Returns
+                             Queries          │ Data
+                                              ▼
+                       ┌──────────────────────────────────────────────┐
+                       │                  MODEL                       │
+                       │          (Mongoose ORM / MongoDB)            │
+                       │     User, Listing, Booking, Complaint        │
+                       └──────────────────────────────────────────────┘
+```
+
+### MVC Architecture Breakdown:
+
+1. **📦 Model (M) — Data & Business Entities (`server/models/`)**:
+   - `User.js`: User credentials, roles, email OTP verification states, and landlord verification status.
+   - `Listing.js`: Rental property details, location, price, status, and availability calendar booked dates.
+   - `Booking.js`: 3-tier booking requests, requested dates, and approval state machine.
+   - `Complaint.js`: Dispute submission schema and admin resolution logs.
+
+2. **🎨 View (V) — User Interface & Presentation (`client/src/`)**:
+   - **Role Dashboards**: `UserDashboard.jsx`, `LandlordListings.jsx`, `AdminDashboard.jsx`, `ComplaintsPage.jsx`.
+   - **UI Components**: `RoleGatewayModal.jsx`, `StatCards.jsx`, `LandlordTable.jsx`, `ListingQueue.jsx`, `BookingQueue.jsx`, `AvailabilityCalendar.jsx`.
+   - Renders data from JSON API responses and captures user interactions.
+
+3. **⚙️ Controller (C) — Application Logic & Handlers (`server/controllers/` & `server/routes/`)**:
+   - `authController.js`: Manages registration, Nodemailer OTP dispatch/verification, and login authentication.
+   - `listingController.js`: Controls property listing creation, landlord filtering, and calendar availability updates.
+   - `bookingController.js`: Controls 3-tier booking requests and approval state transitions.
+   - `adminController.js`: Handles KPI statistics, landlord verification, and listing approval queues.
+   - `complaintController.js`: Manages dispute creation and resolution workflows.
+
+---
+
 ## ✨ Key Features & Capabilities
 
 ### 🔐 1. Authentication & Role Gateway System
@@ -71,6 +123,59 @@ graph TD
 - **"Mark All as Read" Dismissal**:
   - Click **"✔️ Mark All as Read"** to clear notification panels.
   - Toggle **"👁️ Show Dismissed"** to view or restore historical notification logs.
+
+---
+
+## 🗂 Folder Structure (MVC Architecture)
+
+```
+rentease/
+├── client/                      ← VIEW LAYER (V)
+│   └── src/
+│       ├── context/AuthContext.jsx
+│       ├── services/            ← API Service Abstraction
+│       │   ├── adminApi.js
+│       │   ├── listingsApi.js
+│       │   ├── bookingsApi.js
+│       │   └── complaintsApi.js
+│       ├── components/          ← UI View Components
+│       │   ├── Header.jsx
+│       │   ├── Modal.jsx
+│       │   ├── auth/RoleGatewayModal.jsx
+│       │   ├── admin/
+│       │   │   ├── StatCards.jsx
+│       │   │   ├── LandlordTable.jsx
+│       │   │   ├── ListingQueue.jsx
+│       │   │   ├── BookingQueue.jsx
+│       │   │   └── AvailabilityCalendar.jsx
+│       └── pages/               ← Dashboard Views
+│           ├── UserDashboard.jsx
+│           ├── LandlordListings.jsx
+│           ├── AdminDashboard.jsx
+│           └── ComplaintsPage.jsx
+│
+└── server/                      ← CONTROLLER & MODEL LAYERS (C & M)
+    ├── models/                  ← MODEL LAYER (M)
+    │   ├── User.js
+    │   ├── Listing.js
+    │   ├── Booking.js
+    │   └── Complaint.js
+    ├── controllers/             ← CONTROLLER LAYER (C)
+    │   ├── authController.js
+    │   ├── listingController.js
+    │   ├── bookingController.js
+    │   ├── adminController.js
+    │   └── complaintController.js
+    ├── routes/                  ← ROUTING TABLE
+    │   ├── authRoutes.js
+    │   ├── listingRoutes.js
+    │   ├── bookingRoutes.js
+    │   ├── adminRoutes.js
+    │   └── complaintRoutes.js
+    ├── services/
+    │   └── emailService.js      ← Nodemailer Email Dispatch
+    └── server.js                ← Application Entry Point
+```
 
 ---
 
@@ -175,11 +280,3 @@ Open **http://localhost:5173** in your browser.
 This repository is configured for direct Vercel deployment via `vercel.json`:
 - **Serverless API**: `server/server.js` (`/api/*`)
 - **Static Frontend**: `client/` built with Vite (`dist`)
-
-To deploy updates, push to `main` branch:
-```bash
-git add .
-git commit -m "update project features and documentation"
-git push origin main
-```
-Vercel automatically builds and deploys the latest version!

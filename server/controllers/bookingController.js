@@ -1,14 +1,7 @@
-const express = require('express');
-const router = express.Router();
-const Booking = require('./Booking');
-const Listing = require('../listings/Listing');
-const { authenticate, requireAdmin } = require('../auth/auth.middleware');
+const Booking = require('../models/Booking');
+const Listing = require('../models/Listing');
 
-/**
- * POST /api/bookings
- * Tenant creates a booking request
- */
-router.post('/', authenticate, async (req, res) => {
+exports.createBooking = async (req, res) => {
   try {
     const { listingId, dates, notes } = req.body;
 
@@ -21,7 +14,6 @@ router.post('/', authenticate, async (req, res) => {
       return res.status(404).json({ message: 'Listing not found.' });
     }
 
-    // Check if any requested date is already booked on the listing
     const alreadyBooked = dates.some((d) => listing.bookedDates?.includes(d));
     if (alreadyBooked) {
       return res.status(400).json({ message: 'One or more selected dates are already booked/unavailable.' });
@@ -54,13 +46,9 @@ router.post('/', authenticate, async (req, res) => {
     console.error('❌ Create Booking Error:', err);
     return res.status(500).json({ message: 'Server error creating booking request' });
   }
-});
+};
 
-/**
- * GET /api/bookings
- * Fetch bookings filtered by tenantId, landlordId, status, or role
- */
-router.get('/', authenticate, async (req, res) => {
+exports.getBookings = async (req, res) => {
   try {
     const { tenantId, landlordId, status } = req.query;
     const filter = {};
@@ -69,12 +57,10 @@ router.get('/', authenticate, async (req, res) => {
     if (landlordId) filter.landlordId = landlordId;
     if (status) filter.status = status;
 
-    // If role is landlord, scope to their landlordId if not admin
     if (req.user.role === 'landlord' && !landlordId) {
       filter.landlordId = req.user.id;
     }
 
-    // If role is user, scope to their tenantId if not admin
     if (req.user.role === 'user' && !tenantId) {
       filter.tenantId = req.user.id;
     }
@@ -85,13 +71,9 @@ router.get('/', authenticate, async (req, res) => {
     console.error('❌ Get Bookings Error:', err);
     return res.status(500).json({ message: 'Server error fetching bookings' });
   }
-});
+};
 
-/**
- * PATCH /api/bookings/:id/landlord-approve
- * Landlord approves booking -> advances status to pending_admin
- */
-router.patch('/:id/landlord-approve', authenticate, async (req, res) => {
+exports.landlordApprove = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id);
     if (!booking) return res.status(404).json({ message: 'Booking not found.' });
@@ -112,13 +94,9 @@ router.patch('/:id/landlord-approve', authenticate, async (req, res) => {
     console.error('❌ Landlord Approve Error:', err);
     return res.status(500).json({ message: 'Server error approving booking' });
   }
-});
+};
 
-/**
- * PATCH /api/bookings/:id/admin-approve
- * Admin final approves booking -> advances status to approved AND reserves dates on Listing!
- */
-router.patch('/:id/admin-approve', authenticate, requireAdmin, async (req, res) => {
+exports.adminApprove = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id);
     if (!booking) return res.status(404).json({ message: 'Booking not found.' });
@@ -130,7 +108,6 @@ router.patch('/:id/admin-approve', authenticate, requireAdmin, async (req, res) 
     booking.status = 'approved';
     await booking.save();
 
-    // Automatically append booked dates to Listing.bookedDates
     const listing = await Listing.findById(booking.listingId);
     if (listing) {
       const existingDates = new Set(listing.bookedDates || []);
@@ -148,13 +125,9 @@ router.patch('/:id/admin-approve', authenticate, requireAdmin, async (req, res) 
     console.error('❌ Admin Approve Error:', err);
     return res.status(500).json({ message: 'Server error approving booking' });
   }
-});
+};
 
-/**
- * PATCH /api/bookings/:id/reject
- * Rejects booking request
- */
-router.patch('/:id/reject', authenticate, async (req, res) => {
+exports.rejectBooking = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id);
     if (!booking) return res.status(404).json({ message: 'Booking not found.' });
@@ -171,6 +144,4 @@ router.patch('/:id/reject', authenticate, async (req, res) => {
     console.error('❌ Reject Booking Error:', err);
     return res.status(500).json({ message: 'Server error rejecting booking' });
   }
-});
-
-module.exports = router;
+};

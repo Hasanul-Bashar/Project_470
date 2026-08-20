@@ -3,11 +3,11 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
 
-const adminRoutes = require('./features/admin/admin.routes');
-const complaintsRoutes = require('./features/complaints/complaints.routes');
-const listingsRoutes = require('./features/listings/listings.routes');
-const authRoutes = require('./features/auth/auth.routes');
-const bookingsRoutes = require('./features/bookings/bookings.routes');
+const authRoutes = require('./routes/authRoutes');
+const adminRoutes = require('./routes/adminRoutes');
+const complaintRoutes = require('./routes/complaintRoutes');
+const listingRoutes = require('./routes/listingRoutes');
+const bookingRoutes = require('./routes/bookingRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -36,17 +36,16 @@ app.use(async (req, res, next) => {
   next();
 });
 
-// ── Routes ────────────────────────────────────────────────────
+// ── Routes (MVC Pattern Controller Mounts) ────────────────────
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/complaints', complaintsRoutes);
-app.use('/api/listings', listingsRoutes);
-app.use('/api/bookings', bookingsRoutes);
-
+app.use('/api/complaints', complaintRoutes);
+app.use('/api/listings', listingRoutes);
+app.use('/api/bookings', bookingRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', message: 'RentEase API is running 🚀' });
+  res.json({ status: 'ok', message: 'RentEase MVC API is running 🚀' });
 });
 
 // 404 fallback
