@@ -49,7 +49,7 @@ exports.signup = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: `Registration initiated. A 5-digit verification OTP code was sent to ${newUser.email}.`,
+      message: `Registration initiated. Your OTP code is: ${otpCode}`,
       email: newUser.email,
       role: newUser.role,
     });
@@ -140,7 +140,7 @@ exports.resendOtp = async (req, res) => {
 
     return res.json({
       success: true,
-      message: `A new 5-digit verification OTP code was dispatched to ${user.email}.`,
+      message: `A new OTP code was generated: ${newOtp}`,
       email: user.email,
     });
   } catch (err) {
@@ -202,7 +202,7 @@ exports.login = async (req, res) => {
       } catch (e) {}
 
       return res.status(403).json({
-        message: 'Account not verified. A new 5-digit verification OTP was sent to your email.',
+        message: `Account not verified. Your new OTP code is: ${newOtp}`,
         requireOtp: true,
         email: user.email,
       });
