@@ -213,7 +213,7 @@ export default function LandlordListings() {
       setAmenities('');
       fetchListings();
     } catch (err) {
-      showToast('Failed to create listing', 'error');
+      showToast(err.response?.data?.message || 'Failed to create listing', 'error');
     }
   };
 

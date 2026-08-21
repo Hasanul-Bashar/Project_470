@@ -6,7 +6,7 @@ exports.getListings = async (req, res) => {
     let filter = { status: 'approved' };
 
     if (isLandlord) {
-      if (!req.user.isVerifiedLandlord) {
+      if (req.user.isVerifiedLandlord === false) {
         return res.status(403).json({
           message: 'Your landlord account is pending admin verification. Please wait for admin approval.',
           status: 'pending_verification',
@@ -25,25 +25,28 @@ exports.getListings = async (req, res) => {
 
 exports.createListing = async (req, res) => {
   try {
-    if (req.user.role !== 'landlord') {
+    const isLandlordRole = req.user.role === 'landlord';
+    if (!isLandlordRole && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Access denied. Only landlords can add property listings.' });
     }
 
-    if (!req.user.isVerifiedLandlord) {
+    if (isLandlordRole && req.user.isVerifiedLandlord === false) {
       return res.status(403).json({ message: 'Your landlord account must be verified by admin before posting properties.' });
     }
 
     const { title, location, description, price, amenities, photos } = req.body;
 
+    const landlordId = req.user.id || req.user._id || 'demo-landlord-id';
+
     const newListing = await Listing.create({
       title,
       location,
       description,
-      price,
+      price: Number(price),
       amenities: amenities || [],
       photos: photos || [],
       status: 'pending',
-      landlordId: req.user.id,
+      landlordId,
       bookedDates: [],
     });
 
@@ -54,7 +57,7 @@ exports.createListing = async (req, res) => {
     });
   } catch (err) {
     console.error('❌ Create Listing Error:', err);
-    return res.status(500).json({ message: 'Server error creating property listing' });
+    return res.status(500).json({ message: err.message || 'Server error creating property listing' });
   }
 };
 
@@ -72,7 +75,7 @@ exports.updateAvailability = async (req, res) => {
       return res.status(404).json({ message: 'Listing not found' });
     }
 
-    if (req.user.role === 'landlord' && listing.landlordId.toString() !== req.user.id.toString()) {
+    if (req.user.role === 'landlord' && listing.landlordId?.toString() !== req.user.id?.toString()) {
       return res.status(403).json({ message: 'Unauthorized to modify availability for this property' });
     }
 
