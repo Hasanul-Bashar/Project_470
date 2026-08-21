@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { getListings, createListing, updateListingAvailability } from '../services/listingsApi';
 import { getBookings, landlordApproveBooking, rejectBooking } from '../services/bookingsApi';
+import { flagTenant } from '../services/trustScoreApi';
 import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Modal';
 import AvailabilityCalendar from '../components/admin/AvailabilityCalendar';
+import ChatModal from '../components/chat/ChatModal';
 
 export default function LandlordListings() {
   const { user } = useAuth();
@@ -28,6 +30,13 @@ export default function LandlordListings() {
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [activeCalendarListing, setActiveCalendarListing] = useState(null);
+  const [chatListing, setChatListing] = useState(null);
+
+  // Flag Tenant Modal State
+  const [flaggingBooking, setFlaggingBooking] = useState(null);
+  const [flagReason, setFlagReason] = useState('');
+  const [flagSeverity, setFlagSeverity] = useState('medium');
+  const [submittingFlag, setSubmittingFlag] = useState(false);
 
   // Add listing form state
   const [title, setTitle] = useState('');
@@ -105,6 +114,32 @@ export default function LandlordListings() {
       fetchTenantBookings();
     } catch (err) {
       showToast('Failed to reject booking', 'error');
+    }
+  };
+
+  // Submit Flag Tenant
+  const handleFlagSubmit = async (e) => {
+    e.preventDefault();
+    if (!flagReason.trim() || !flaggingBooking) return;
+
+    try {
+      setSubmittingFlag(true);
+      await flagTenant({
+        tenantId: flaggingBooking.tenantId,
+        tenantName: flaggingBooking.tenantName,
+        tenantEmail: flaggingBooking.tenantEmail,
+        reason: flagReason,
+        severity: flagSeverity,
+      });
+
+      showToast(`Flag added against ${flaggingBooking.tenantName}. Trust Score updated.`);
+      setFlaggingBooking(null);
+      setFlagReason('');
+      setFlagSeverity('medium');
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to flag tenant', 'error');
+    } finally {
+      setSubmittingFlag(false);
     }
   };
 
@@ -199,7 +234,7 @@ export default function LandlordListings() {
       <div className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <div>
           <h1 className="page-title">Landlord Dashboard & Properties</h1>
-          <p className="page-subtitle">Manage rental listings, review tenant booking requests, and block calendar dates.</p>
+          <p className="page-subtitle">Manage rental listings, chat with tenants, review booking requests, and manage availability.</p>
         </div>
         <button className="btn btn-primary" onClick={() => setIsAddModalOpen(true)}>
           ➕ Add Property
@@ -349,6 +384,22 @@ export default function LandlordListings() {
 
                   {/* Actions / Status */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <button
+                      className="btn btn-secondary"
+                      style={{ fontSize: '0.78rem', padding: '0.4rem 0.75rem', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.3)' }}
+                      onClick={() => setChatListing({ _id: b.listingId, title: b.listingTitle, location: b.listingLocation })}
+                    >
+                      💬 Chat Tenant
+                    </button>
+
+                    <button
+                      className="btn btn-secondary"
+                      style={{ fontSize: '0.78rem', padding: '0.4rem 0.75rem', color: '#fbbf24', borderColor: 'rgba(245, 158, 11, 0.3)' }}
+                      onClick={() => setFlaggingBooking(b)}
+                    >
+                      🚩 Flag Tenant
+                    </button>
+
                     {b.status === 'pending_landlord' && (
                       <>
                         <button
@@ -500,13 +551,20 @@ export default function LandlordListings() {
                   📅 {listing.bookedDates ? listing.bookedDates.length : 0} Booked/Blocked dates
                 </div>
               </div>
-              <div className="card-footer" style={{ marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
+              <div className="card-footer" style={{ marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--border)', display: 'flex', gap: '0.5rem' }}>
                 <button
-                  className="btn btn-secondary w-full"
-                  onClick={() => setActiveCalendarListing(listing)}
-                  style={{ width: '100%' }}
+                  className="btn btn-secondary"
+                  onClick={() => setChatListing(listing)}
+                  style={{ flexGrow: 1, color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.3)' }}
                 >
-                  🗓 Manage Availability
+                  💬 Chat
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => setActiveCalendarListing(listing)}
+                  style={{ flexGrow: 1 }}
+                >
+                  🗓 Availability
                 </button>
               </div>
             </div>
@@ -583,6 +641,55 @@ export default function LandlordListings() {
         </Modal>
       )}
 
+      {/* Flag Tenant Modal */}
+      {flaggingBooking && (
+        <Modal title={`🚩 Flag Tenant: ${flaggingBooking.tenantName}`} onClose={() => setFlaggingBooking(null)}>
+          <form onSubmit={handleFlagSubmit} style={{ padding: '1rem' }}>
+            <div style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '0.75rem 1rem', borderRadius: '8px', marginBottom: '1rem' }}>
+              <h4 style={{ margin: '0 0 0.25rem 0', color: '#f87171' }}>{flaggingBooking.tenantName} ({flaggingBooking.tenantEmail})</h4>
+              <p style={{ margin: 0, fontSize: '0.82rem', color: '#cbd5e1' }}>
+                Property: {flaggingBooking.listingTitle}
+              </p>
+            </div>
+
+            <div className="form-group" style={{ marginBottom: '1rem' }}>
+              <label className="form-label">Flag Severity Level *</label>
+              <select
+                className="form-select"
+                value={flagSeverity}
+                onChange={(e) => setFlagSeverity(e.target.value)}
+              >
+                <option value="low">Low (-5 pts penalty)</option>
+                <option value="medium">Medium (-10 pts penalty)</option>
+                <option value="high">High (-20 pts penalty)</option>
+                <option value="critical">Critical (-30 pts penalty)</option>
+              </select>
+            </div>
+
+            <div className="form-group" style={{ marginBottom: '1rem' }}>
+              <label className="form-label">Reason for Flagging *</label>
+              <textarea
+                className="form-textarea"
+                rows={3}
+                required
+                placeholder="Describe reason (e.g. Unpaid rent, lease violation, property damage)..."
+                value={flagReason}
+                onChange={(e) => setFlagReason(e.target.value)}
+              />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+              <button type="button" className="btn btn-secondary" onClick={() => setFlaggingBooking(null)}>
+                Cancel
+              </button>
+              <button type="submit" className="btn btn-reject" disabled={submittingFlag}>
+                {submittingFlag ? 'Flagging...' : '🚩 Flag Tenant'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
       {/* Calendar Availability Modal */}
       {activeCalendarListing && (
         <Modal
@@ -597,6 +704,11 @@ export default function LandlordListings() {
             />
           </div>
         </Modal>
+      )}
+
+      {/* Chat Modal */}
+      {chatListing && (
+        <ChatModal listing={chatListing} onClose={() => setChatListing(null)} />
       )}
 
       {/* Toasts */}

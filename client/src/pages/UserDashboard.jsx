@@ -4,6 +4,8 @@ import { createBooking, getBookings } from '../services/bookingsApi';
 import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Modal';
 import AvailabilityCalendar from '../components/admin/AvailabilityCalendar';
+import ChatModal from '../components/chat/ChatModal';
+import TrustScoreModal from '../components/trustScore/TrustScoreModal';
 
 export default function UserDashboard() {
   const { user } = useAuth();
@@ -38,6 +40,8 @@ export default function UserDashboard() {
 
   // Modal States
   const [activeCalendarListing, setActiveCalendarListing] = useState(null);
+  const [chatListing, setChatListing] = useState(null);
+  const [isTrustScoreModalOpen, setIsTrustScoreModalOpen] = useState(false);
   const [bookingListing, setBookingListing] = useState(null);
   const [bookingDateInput, setBookingDateInput] = useState('');
   const [inquiryMsg, setInquiryMsg] = useState('');
@@ -167,11 +171,20 @@ export default function UserDashboard() {
   return (
     <div className="container">
       {/* Page Header */}
-      <div className="dashboard-header" style={{ marginBottom: '1.5rem' }}>
-        <h1 className="page-title">Tenant Rental Dashboard</h1>
-        <p className="page-subtitle">
-          Browse verified rental properties, select dates to request rentals, and track live approval status.
-        </p>
+      <div className="dashboard-header" style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <h1 className="page-title">Tenant Rental Dashboard</h1>
+          <p className="page-subtitle">
+            Browse verified rental properties, message landlords, and track your trust score & booking requests.
+          </p>
+        </div>
+        <button
+          className="btn"
+          style={{ background: 'rgba(139, 92, 246, 0.15)', color: '#c084fc', border: '1px solid rgba(139, 92, 246, 0.3)', padding: '0.55rem 1rem' }}
+          onClick={() => setIsTrustScoreModalOpen(true)}
+        >
+          🛡 My Trust Score Profile
+        </button>
       </div>
 
       {/* ── MY BOOKING REQUESTS STATUS TRACKER ─────────────────────── */}
@@ -628,20 +641,28 @@ export default function UserDashboard() {
                     borderTop: '1px solid var(--border)',
                     display: 'grid',
                     gridTemplateColumns: '1fr 1fr',
-                    gap: '0.5rem',
+                    gap: '0.4rem',
                   }}
                 >
                   <button
                     className="btn btn-secondary"
-                    style={{ fontSize: '0.8rem', padding: '0.5rem' }}
+                    style={{ fontSize: '0.75rem', padding: '0.45rem' }}
                     onClick={() => setActiveCalendarListing(listing)}
                   >
-                    🗓 View Calendar
+                    🗓 Calendar
+                  </button>
+
+                  <button
+                    className="btn btn-secondary"
+                    style={{ fontSize: '0.75rem', padding: '0.45rem', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.3)' }}
+                    onClick={() => setChatListing(listing)}
+                  >
+                    💬 Chat
                   </button>
 
                   <button
                     className="btn btn-primary"
-                    style={{ fontSize: '0.8rem', padding: '0.5rem' }}
+                    style={{ fontSize: '0.75rem', padding: '0.45rem', gridColumn: 'span 2' }}
                     onClick={() => setBookingListing(listing)}
                   >
                     📩 Book / Wish to Rent
@@ -671,6 +692,16 @@ export default function UserDashboard() {
             />
           </div>
         </Modal>
+      )}
+
+      {/* Chat Modal */}
+      {chatListing && (
+        <ChatModal listing={chatListing} onClose={() => setChatListing(null)} />
+      )}
+
+      {/* Trust Score Profile Modal */}
+      {isTrustScoreModalOpen && (
+        <TrustScoreModal tenantId={user?.id} onClose={() => setIsTrustScoreModalOpen(false)} />
       )}
 
       {/* Rental Booking Request Modal */}

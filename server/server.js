@@ -8,6 +8,8 @@ const adminRoutes = require('./routes/adminRoutes');
 const complaintRoutes = require('./routes/complaintRoutes');
 const listingRoutes = require('./routes/listingRoutes');
 const bookingRoutes = require('./routes/bookingRoutes');
+const chatRoutes = require('./routes/chatRoutes');
+const trustScoreRoutes = require('./routes/trustScoreRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -42,6 +44,8 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/complaints', complaintRoutes);
 app.use('/api/listings', listingRoutes);
 app.use('/api/bookings', bookingRoutes);
+app.use('/api/chats', chatRoutes);
+app.use('/api/trust-score', trustScoreRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {

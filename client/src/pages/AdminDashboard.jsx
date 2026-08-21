@@ -4,6 +4,7 @@ import StatCards from '../components/admin/StatCards';
 import LandlordTable from '../components/admin/LandlordTable';
 import ListingQueue from '../components/admin/ListingQueue';
 import BookingQueue from '../components/admin/BookingQueue';
+import TrustScoreQueue from '../components/admin/TrustScoreQueue';
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -34,7 +35,7 @@ export default function AdminDashboard() {
     <div className="container">
       <h1 className="page-title">Admin Dashboard</h1>
       <p className="page-subtitle">
-        Platform overview — manage landlord verification, listing approvals, booking requests, and dispute stats
+        Platform overview — manage landlord verification, listing approvals, trust score appeals, and booking requests
       </p>
 
       {/* ── 1. KPI Stat Cards ─────────────────────────────────── */}
@@ -44,11 +45,15 @@ export default function AdminDashboard() {
       <h2 className="section-title">Tenant Booking Approval Queue</h2>
       <BookingQueue onAction={refreshStats} />
 
-      {/* ── 3. Landlord Verification ──────────────────────────── */}
+      {/* ── 3. Tenant Trust Score & Blacklist Queue ───────────── */}
+      <h2 className="section-title">Tenant Trust Score & Blacklist Appeals</h2>
+      <TrustScoreQueue onAction={refreshStats} />
+
+      {/* ── 4. Landlord Verification ──────────────────────────── */}
       <h2 className="section-title">Landlord Verification</h2>
       <LandlordTable onAction={refreshStats} />
 
-      {/* ── 4. Listing Approval Queue ─────────────────────────── */}
+      {/* ── 5. Listing Approval Queue ─────────────────────────── */}
       <h2 className="section-title">Listing Approval Queue</h2>
       <ListingQueue onAction={refreshStats} />
     </div>
