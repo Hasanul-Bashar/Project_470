@@ -1,57 +1,62 @@
-/**
- * Auth Middleware — extracts mock JWT token or user profile header and attaches to req.user.
- * Also enforces role-based access control (RBAC).
- */
+const mongoose = require('mongoose');
+const User = require('../models/User');
 
-const decodeToken = (token) => {
+const authenticate = async (req, res, next) => {
   try {
-    const jsonStr = Buffer.from(token, 'base64').toString('utf8');
-    return JSON.parse(jsonStr);
-  } catch (e) {
-    return null;
-  }
-};
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
 
-const authenticate = (req, res, next) => {
-  const authHeader = req.headers.authorization || '';
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    // Demo user defaults if no token header provided
+    req.user = {
+      id: 'demo-user-id',
+      email: 'demo@rentease.com',
+      role: 'user',
+      isVerifiedLandlord: true,
+    };
 
-  // Default fallback user
-  let user = {
-    id: 'demo-user-id',
-    email: 'demo@rentease.com',
-    role: 'user',
-    isVerifiedLandlord: true,
-  };
+    if (token) {
+      if (token.includes('admin')) {
+        req.user = {
+          id: 'admin-001',
+          email: process.env.ADMIN_EMAIL || 'admin@rentease.com',
+          role: 'admin',
+          name: 'Super Admin',
+          isVerifiedLandlord: true,
+        };
+      } else {
+        const savedUserHeader = req.headers['x-user-data'];
+        if (savedUserHeader) {
+          try {
+            req.user = typeof savedUserHeader === 'string' ? JSON.parse(savedUserHeader) : savedUserHeader;
+          } catch (e) {}
+        }
 
-  // 1. Check custom headers
-  const savedUserHeader = req.headers['x-user-profile'] || req.headers['x-user-data'];
-  if (savedUserHeader) {
-    try {
-      user = JSON.parse(savedUserHeader);
-    } catch (e) {}
-  }
-
-  // 2. Decode token if present
-  if (token) {
-    if (token.includes('admin')) {
-      user = {
-        id: 'admin-001',
-        email: process.env.ADMIN_EMAIL || 'admin@rentease.com',
-        role: 'admin',
-        name: 'Super Admin',
-        isVerifiedLandlord: true,
-      };
-    } else {
-      const decoded = decodeToken(token);
-      if (decoded && decoded.role) {
-        user = { ...user, ...decoded };
+        // Try extracting user ID from mock-jwt-token-<id>-<timestamp>
+        const match = token.match(/^mock-jwt-token-([a-f0-9]{24})/i);
+        if (match && match[1]) {
+          const userId = match[1];
+          if (mongoose.Types.ObjectId.isValid(userId)) {
+            const dbUser = await User.findById(userId);
+            if (dbUser) {
+              req.user = {
+                id: dbUser._id.toString(),
+                email: dbUser.email,
+                role: dbUser.role,
+                name: dbUser.name || `${dbUser.firstName || ''} ${dbUser.lastName || ''}`.trim(),
+                firstName: dbUser.firstName,
+                lastName: dbUser.lastName,
+                isVerifiedLandlord: dbUser.isVerifiedLandlord,
+              };
+            }
+          }
+        }
       }
     }
+    next();
+  } catch (err) {
+    console.error('⚠️ Auth middleware error:', err.message);
+    next();
   }
-
-  req.user = user;
-  next();
 };
 
 const requireAdmin = (req, res, next) => {

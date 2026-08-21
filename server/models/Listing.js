@@ -7,6 +7,7 @@ const ListingSchema = new mongoose.Schema(
     description: { type: String, required: true },
     amenities: [{ type: String }],
     price: { type: Number, required: true },
+    size:  { type: Number, default: null }, // optional: square footage (sqft) for comparison tool
     photos: [{ type: String }],
 
     status: {
@@ -16,7 +17,8 @@ const ListingSchema = new mongoose.Schema(
     },
 
     landlordId: {
-      type: mongoose.Schema.Types.Mixed,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
       required: true,
     },
 

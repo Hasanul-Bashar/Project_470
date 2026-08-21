@@ -63,8 +63,8 @@ export default function RoleGatewayModal() {
     } catch (err) {
       setLoading(false);
       const data = err.response?.data;
-      if (data?.needsOtp || data?.requireOtp) {
-        setInfoMsg(data.message || 'Email verification required. Please enter the 5-digit OTP sent to your email.');
+      if (data?.needsOtp) {
+        setInfoMsg('Email verification required. Please enter the 5-digit OTP sent to your email.');
         setAuthMode('otp');
       } else {
         setErrorMsg(data?.message || 'Login failed. Please verify your credentials.');
@@ -87,7 +87,7 @@ export default function RoleGatewayModal() {
         role: activeRole,
       });
       setLoading(false);
-      setInfoMsg(res.message || `📩 5-digit OTP sent to ${email}. Please check your email inbox (and Spam/Junk folder).`);
+      setInfoMsg(`📩 5-digit OTP sent to ${email}. Please check your email inbox (and Spam/Junk folder).`);
       setAuthMode('otp');
     } catch (err) {
       setLoading(false);
@@ -106,7 +106,7 @@ export default function RoleGatewayModal() {
     try {
       const res = await resendOtp(email);
       setLoading(false);
-      setInfoMsg(res.message || `📩 A new 5-digit OTP code has been sent to ${email}. Check your email inbox & Spam folder.`);
+      setInfoMsg(`📩 A new 5-digit OTP code has been sent to ${email}. Check your email inbox & Spam folder.`);
     } catch (err) {
       setLoading(false);
       setErrorMsg(err.response?.data?.message || 'Failed to resend OTP.');

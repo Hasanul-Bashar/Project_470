@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { getListings } from '../services/listingsApi';
 import { createBooking, getBookings } from '../services/bookingsApi';
+import { recordView } from '../services/analyticsApi';
 import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Modal';
 import AvailabilityCalendar from '../components/admin/AvailabilityCalendar';
-import ChatModal from '../components/chat/ChatModal';
-import TrustScoreModal from '../components/trustScore/TrustScoreModal';
+import CompareBar from '../components/CompareBar';
+import CompareModal from '../components/CompareModal';
+import ReviewSection from '../components/ReviewSection';
 
 export default function UserDashboard() {
   const { user } = useAuth();
@@ -40,13 +42,18 @@ export default function UserDashboard() {
 
   // Modal States
   const [activeCalendarListing, setActiveCalendarListing] = useState(null);
-  const [chatListing, setChatListing] = useState(null);
-  const [isTrustScoreModalOpen, setIsTrustScoreModalOpen] = useState(false);
   const [bookingListing, setBookingListing] = useState(null);
   const [bookingDateInput, setBookingDateInput] = useState('');
   const [inquiryMsg, setInquiryMsg] = useState('');
   const [toast, setToast] = useState(null);
   const [submittingBooking, setSubmittingBooking] = useState(false);
+
+  // ── Feature 1: Property Comparison ──────────────────────────
+  const [compareList, setCompareList] = useState([]);   // max 3 listings
+  const [showCompareModal, setShowCompareModal] = useState(false);
+
+  // ── Feature 3: Expanded listing view (for reviews) ──────────
+  const [expandedListingId, setExpandedListingId] = useState(null);
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -80,6 +87,22 @@ export default function UserDashboard() {
       console.error('Error fetching my bookings:', err);
     }
   };
+
+  // ── Compare helpers ──────────────────────────────────────────
+  const toggleCompare = (listing) => {
+    setCompareList((prev) => {
+      const exists = prev.some((l) => l._id === listing._id);
+      if (exists) return prev.filter((l) => l._id !== listing._id);
+      if (prev.length >= 3) {
+        showToast('You can compare up to 3 properties at once.', 'info');
+        return prev;
+      }
+      return [...prev, listing];
+    });
+  };
+
+  const removeFromCompare = (id) => setCompareList((prev) => prev.filter((l) => l._id !== id));
+  const clearCompare     = ()   => setCompareList([]);
 
   const markAllBookingsAsRead = () => {
     const allIds = myBookings.map((b) => b._id);
@@ -171,20 +194,11 @@ export default function UserDashboard() {
   return (
     <div className="container">
       {/* Page Header */}
-      <div className="dashboard-header" style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <h1 className="page-title">Tenant Rental Dashboard</h1>
-          <p className="page-subtitle">
-            Browse verified rental properties, message landlords, and track your trust score & booking requests.
-          </p>
-        </div>
-        <button
-          className="btn"
-          style={{ background: 'rgba(139, 92, 246, 0.15)', color: '#c084fc', border: '1px solid rgba(139, 92, 246, 0.3)', padding: '0.55rem 1rem' }}
-          onClick={() => setIsTrustScoreModalOpen(true)}
-        >
-          🛡 My Trust Score Profile
-        </button>
+      <div className="dashboard-header" style={{ marginBottom: '1.5rem' }}>
+        <h1 className="page-title">Tenant Rental Dashboard</h1>
+        <p className="page-subtitle">
+          Browse verified rental properties, select dates to request rentals, and track live approval status.
+        </p>
       </div>
 
       {/* ── MY BOOKING REQUESTS STATUS TRACKER ─────────────────────── */}
@@ -641,37 +655,87 @@ export default function UserDashboard() {
                     borderTop: '1px solid var(--border)',
                     display: 'grid',
                     gridTemplateColumns: '1fr 1fr',
-                    gap: '0.4rem',
+                    gap: '0.5rem',
                   }}
                 >
                   <button
                     className="btn btn-secondary"
-                    style={{ fontSize: '0.75rem', padding: '0.45rem' }}
-                    onClick={() => setActiveCalendarListing(listing)}
+                    style={{ fontSize: '0.8rem', padding: '0.5rem' }}
+                    onClick={() => {
+                      setActiveCalendarListing(listing);
+                      // Record view for landlord analytics
+                      recordView(listing._id).catch(() => {});
+                    }}
                   >
-                    🗓 Calendar
-                  </button>
-
-                  <button
-                    className="btn btn-secondary"
-                    style={{ fontSize: '0.75rem', padding: '0.45rem', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.3)' }}
-                    onClick={() => setChatListing(listing)}
-                  >
-                    💬 Chat
+                    🗓 View Calendar
                   </button>
 
                   <button
                     className="btn btn-primary"
-                    style={{ fontSize: '0.75rem', padding: '0.45rem', gridColumn: 'span 2' }}
+                    style={{ fontSize: '0.8rem', padding: '0.5rem' }}
                     onClick={() => setBookingListing(listing)}
                   >
                     📩 Book / Wish to Rent
                   </button>
+
+                  {/* Compare toggle */}
+                  <button
+                    className={`btn compare-toggle-btn ${compareList.some((l) => l._id === listing._id) ? 'compare-active' : ''}`}
+                    style={{ fontSize: '0.78rem', padding: '0.5rem', gridColumn: '1 / -1' }}
+                    onClick={() => toggleCompare(listing)}
+                    title={compareList.some((l) => l._id === listing._id) ? 'Remove from comparison' : 'Add to comparison (max 3)'}
+                  >
+                    {compareList.some((l) => l._id === listing._id) ? '✓ In Comparison' : '⚖️ Add to Compare'}
+                  </button>
+
+                  {/* Reviews expander */}
+                  <button
+                    className="btn btn-secondary"
+                    style={{ fontSize: '0.78rem', padding: '0.5rem', gridColumn: '1 / -1' }}
+                    onClick={() => setExpandedListingId(expandedListingId === listing._id ? null : listing._id)}
+                  >
+                    {expandedListingId === listing._id ? '▲ Hide Reviews' : '⭐ View Reviews'}
+                  </button>
                 </div>
+
+                {/* ── Review Section (expandable) ─────────────────── */}
+                {expandedListingId === listing._id && (() => {
+                  // Find an approved booking for this listing by the current user
+                  const eligibleBooking = myBookings.find(
+                    (b) => b.listingId === listing._id && b.status === 'approved'
+                  ) || null;
+                  return (
+                    <div style={{ marginTop: '0.75rem', borderTop: '1px solid var(--border)', paddingTop: '0.75rem' }}>
+                      <ReviewSection
+                        mode="property"
+                        targetId={listing._id}
+                        listingId={listing._id}
+                        eligibleBooking={eligibleBooking}
+                        currentUser={user}
+                      />
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}
         </div>
+      )}
+
+      {/* ── Compare Bar ─────────────────────────────────────────── */}
+      <CompareBar
+        selected={compareList}
+        onRemove={removeFromCompare}
+        onCompare={() => setShowCompareModal(true)}
+        onClear={clearCompare}
+      />
+
+      {/* ── Compare Modal ───────────────────────────────────────── */}
+      {showCompareModal && compareList.length >= 2 && (
+        <CompareModal
+          listings={compareList}
+          onClose={() => setShowCompareModal(false)}
+        />
       )}
 
       {/* Calendar Preview Modal */}
@@ -692,16 +756,6 @@ export default function UserDashboard() {
             />
           </div>
         </Modal>
-      )}
-
-      {/* Chat Modal */}
-      {chatListing && (
-        <ChatModal listing={chatListing} onClose={() => setChatListing(null)} />
-      )}
-
-      {/* Trust Score Profile Modal */}
-      {isTrustScoreModalOpen && (
-        <TrustScoreModal tenantId={user?.id} onClose={() => setIsTrustScoreModalOpen(false)} />
       )}
 
       {/* Rental Booking Request Modal */}

@@ -6,6 +6,7 @@ import UserDashboard from './pages/UserDashboard';
 import LandlordListings from './pages/LandlordListings';
 import AdminDashboard from './pages/AdminDashboard';
 import ComplaintsPage from './pages/ComplaintsPage';
+import AnalyticsDashboard from './pages/AnalyticsDashboard';
 
 function RootRedirect() {
   const { user } = useAuth();
@@ -31,6 +32,7 @@ function App() {
             <Route path="/listings" element={<LandlordListings />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/complaints" element={<ComplaintsPage />} />
+            <Route path="/landlord-analytics" element={<AnalyticsDashboard />} />
 
             {/* Fallback route */}
             <Route path="*" element={<RootRedirect />} />

@@ -22,9 +22,9 @@ require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const mongoose = require('mongoose');
 const bcrypt   = require('bcryptjs');
 
-const User      = require('../features/auth/User');
-const Listing   = require('../features/listings/Listing');
-const Complaint = require('../features/complaints/Complaint');
+const User      = require('../models/User');
+const Listing   = require('../models/Listing');
+const Complaint = require('../models/Complaint');
 
 
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/rentease';
@@ -88,31 +88,34 @@ async function seed() {
     });
     console.log('👤 Demo user created:  demo.user@rentease.com  /  User1234');
 
-    // ── 3. Three unverified Landlords ─────────────────────────
+    // ── 3. Landlords ──────────────────────────────────────────
     const landlords = await User.insertMany([
       {
         firstName: 'Alice',   lastName: 'Rahman',
         email:    'alice.rahman@landlord.com',
         password:  adminHash,
         role:      'landlord',
-        isVerified: false, verificationStatus: 'pending',
+        isVerifiedLandlord: true,
+        isOtpVerified: true,
       },
       {
         firstName: 'Bob',     lastName: 'Hasan',
         email:    'bob.hasan@landlord.com',
         password:  adminHash,
         role:      'landlord',
-        isVerified: false, verificationStatus: 'pending',
+        isVerifiedLandlord: true,
+        isOtpVerified: true,
       },
       {
         firstName: 'Carol',   lastName: 'Islam',
         email:    'carol.islam@landlord.com',
         password:  adminHash,
         role:      'landlord',
-        isVerified: false, verificationStatus: 'pending',
+        isVerifiedLandlord: false,
+        isOtpVerified: true,
       },
     ]);
-    console.log('🏢 3 Landlords created (unverified)');
+    console.log('🏢 3 Landlords created (2 Verified, 1 Pending)');
 
     // ── 4. Three pending Listings ──────────────────────────────
     const listings = await Listing.insertMany([

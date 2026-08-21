@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 require('dotenv').config();
-const User = require('../features/auth/User');
+const User = require('../models/User');
 const { sendOtpEmail, sendWelcomeEmail } = require('../services/emailService');
 
 async function testAuthLogic() {
