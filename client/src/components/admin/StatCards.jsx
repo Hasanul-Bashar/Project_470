@@ -2,47 +2,64 @@ import { useState, useEffect } from 'react';
 import { getStats } from '../../services/adminApi';
 
 /** Animated count-up that runs once when target is set */
-function CountUp({ target, duration = 1100 }) {
+function CountUp({ target = 0, duration = 1100 }) {
+  const numericTarget = Number(target) || 0;
   const [count, setCount] = useState(0);
 
   useEffect(() => {
-    if (target === 0) { setCount(0); return; }
+    if (numericTarget === 0) {
+      setCount(0);
+      return;
+    }
     const start = performance.now();
-    const tick  = (now) => {
+    const tick = (now) => {
       const progress = Math.min((now - start) / duration, 1);
       // Ease-out: fast start, slow finish
       const eased = 1 - Math.pow(1 - progress, 3);
-      setCount(Math.floor(eased * target));
+      setCount(Math.floor(eased * numericTarget));
       if (progress < 1) requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
-  }, [target, duration]);
+  }, [numericTarget, duration]);
 
   return <>{count}</>;
 }
 
-/** Card definitions — key must match the API response field */
+/** Card definitions — matching backend response keys */
 const CARDS = [
-  { key: 'totalUsers',         label: 'Total Users',          icon: '👥', color: 'blue'   },
-  { key: 'unverifiedLandlords',label: 'Unverified Landlords', icon: '🏢', color: 'amber'  },
-  { key: 'pendingListings',    label: 'Pending Listings',     icon: '📋', color: 'orange' },
-  { key: 'activeComplaints',   label: 'Active Complaints',    icon: '⚠️', color: 'red'    },
+  { key: 'totalUsers', label: 'Total Users', icon: '👥', color: 'blue' },
+  { key: 'unverifiedLandlords', label: 'Unverified Landlords', icon: '🏢', color: 'amber' },
+  { key: 'pendingListings', label: 'Pending Listings', icon: '📋', color: 'orange' },
+  { key: 'activeComplaints', label: 'Active Complaints', icon: '⚠️', color: 'red' },
 ];
 
 /**
  * StatCards — four KPI cards at the top of the Admin Dashboard.
  * Fetches data from GET /api/admin/stats and animates the count-up.
- * Re-mounting this component (via a key prop) triggers a fresh fetch.
  */
 export default function StatCards() {
   const [stats, setStats] = useState({
-    totalUsers: 0, unverifiedLandlords: 0, pendingListings: 0, activeComplaints: 0,
+    totalUsers: 0,
+    unverifiedLandlords: 0,
+    pendingLandlords: 0,
+    pendingListings: 0,
+    activeComplaints: 0,
+    openComplaints: 0,
   });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     getStats()
-      .then((res) => setStats(res.data))
+      .then((res) => {
+        if (res.data) {
+          setStats({
+            totalUsers: res.data.totalUsers ?? 0,
+            unverifiedLandlords: res.data.unverifiedLandlords ?? res.data.pendingLandlords ?? 0,
+            pendingListings: res.data.pendingListings ?? 0,
+            activeComplaints: res.data.activeComplaints ?? res.data.openComplaints ?? 0,
+          });
+        }
+      })
       .catch((err) => console.error('Failed to load stats:', err.message))
       .finally(() => setLoading(false));
   }, []);
@@ -53,7 +70,7 @@ export default function StatCards() {
         <div key={key} className={`stat-card ${color}`}>
           <span className="stat-card-icon">{icon}</span>
           <div className="stat-card-value" id={`stat-${key}`}>
-            {loading ? '—' : <CountUp target={stats[key]} />}
+            {loading ? '—' : <CountUp target={stats[key] ?? 0} />}
           </div>
           <div className="stat-card-label">{label}</div>
         </div>

@@ -12,12 +12,14 @@ exports.getStats = async (_req, res) => {
     const openComplaints = await Complaint.countDocuments({ status: { $in: ['Pending', 'In Review'] } });
 
     return res.json({
-      totalUsers,
-      pendingLandlords,
-      verifiedLandlords,
-      pendingListings,
-      activeListings,
-      openComplaints,
+      totalUsers: totalUsers || 0,
+      pendingLandlords: pendingLandlords || 0,
+      unverifiedLandlords: pendingLandlords || 0,
+      verifiedLandlords: verifiedLandlords || 0,
+      pendingListings: pendingListings || 0,
+      activeListings: activeListings || 0,
+      openComplaints: openComplaints || 0,
+      activeComplaints: openComplaints || 0,
     });
   } catch (err) {
     console.error('❌ Get Admin Stats Error:', err);
