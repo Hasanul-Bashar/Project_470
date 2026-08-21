@@ -1,6 +1,6 @@
 # RentEase — Property Rental and Listing Platform
 
-> A comprehensive full-stack MERN application connecting Tenants, Landlords, and Administrators into a secure, feature-rich property rental ecosystem.
+> A comprehensive full-stack MERN application connecting Tenants, Landlords, and Administrators into a secure, feature-rich property rental ecosystem following strict MVC Architecture.
 
 ---
 
@@ -29,7 +29,7 @@ RentEase is strictly engineered using the **Model-View-Controller (MVC) Architec
                        ┌──────────────────────────────────────────────┐
                        │                CONTROLLER                    │
                        │          (Express Controllers)               │
-                       │  auth, listing, booking, admin Controllers   │
+                       │ auth, listing, booking, chat, trustScore Ctlr│
                        └──────────────────────┬───────────────────────┘
                                               │
                              Manipulates/     │ Returns
@@ -38,7 +38,7 @@ RentEase is strictly engineered using the **Model-View-Controller (MVC) Architec
                        ┌──────────────────────────────────────────────┐
                        │                  MODEL                       │
                        │          (Mongoose ORM / MongoDB)            │
-                       │     User, Listing, Booking, Complaint        │
+                       │ User, Listing, Booking, Chat, TrustScore     │
                        └──────────────────────────────────────────────┘
 ```
 
@@ -46,19 +46,23 @@ RentEase is strictly engineered using the **Model-View-Controller (MVC) Architec
 
 1. **📦 Model (M) — Data & Business Entities (`server/models/`)**:
    - `User.js`: User credentials, roles, email OTP verification states, and landlord verification status.
-   - `Listing.js`: Rental property details, location, price, status, and availability calendar booked dates.
+   - `Listing.js`: Rental property details, location, price, status, landlord ID, and availability calendar booked dates.
    - `Booking.js`: 3-tier booking requests, requested dates, and approval state machine.
+   - `Chat.js`: Message threads between tenants and landlords tied to specific listings.
+   - `TrustScore.js`: Weighted trust score calculations, recency time-decay factor, landlord flags, provisional exclusion appeals, and timestamped audit logs.
    - `Complaint.js`: Dispute submission schema and admin resolution logs.
 
 2. **🎨 View (V) — User Interface & Presentation (`client/src/`)**:
    - **Role Dashboards**: `UserDashboard.jsx`, `LandlordListings.jsx`, `AdminDashboard.jsx`, `ComplaintsPage.jsx`.
-   - **UI Components**: `RoleGatewayModal.jsx`, `StatCards.jsx`, `LandlordTable.jsx`, `ListingQueue.jsx`, `BookingQueue.jsx`, `AvailabilityCalendar.jsx`.
+   - **UI Components**: `RoleGatewayModal.jsx`, `ChatModal.jsx`, `TrustScoreModal.jsx`, `TrustScoreQueue.jsx`, `StatCards.jsx`, `LandlordTable.jsx`, `ListingQueue.jsx`, `BookingQueue.jsx`, `AvailabilityCalendar.jsx`.
    - Renders data from JSON API responses and captures user interactions.
 
 3. **⚙️ Controller (C) — Application Logic & Handlers (`server/controllers/` & `server/routes/`)**:
    - `authController.js`: Manages registration, Nodemailer OTP dispatch/verification, and login authentication.
    - `listingController.js`: Controls property listing creation, landlord filtering, and calendar availability updates.
    - `bookingController.js`: Controls 3-tier booking requests and approval state transitions.
+   - `chatController.js`: Controls tenant-landlord message thread creation and message exchanges.
+   - `trustScoreController.js`: Calculates weighted trust scores with recency time-decay, manages landlord flags, tenant provisional exclusion appeals, and admin appeal reviews.
    - `adminController.js`: Handles KPI statistics, landlord verification, and listing approval queues.
    - `complaintController.js`: Manages dispute creation and resolution workflows.
 
@@ -73,32 +77,36 @@ RentEase is strictly engineered using the **Model-View-Controller (MVC) Architec
   - Tailored HTML Welcome Email dispatched upon successful account verification.
   - Secure verification: OTP codes expire in 10 minutes and are strictly delivered to user inbox.
 - **Admin Security**: Admin login verified against secure environment variables (`ADMIN_EMAIL` and `ADMIN_PASSWORD`).
-- **Dynamic Header Greetings**: Displays `"Hi, <Name>!"` on initial signup and `"Welcome back, <Name>!"` on returning sessions.
 
 ---
 
-### 💻 2. Role-Specific Dashboards & Navigation
-- **👤 Tenant / User Dashboard (`/user-dashboard`)**:
-  - Browse verified rental properties with prices (BDT), descriptions, amenities, and location tags.
-  - Real-time search bar for filtering by neighborhood, title, or keywords.
-  - **"Add Wishes to Rent" (Wishlist)**: Save favorite properties to personal wishlist list (`My Wishes to Rent`).
-  - **Interactive Availability Calendar**: Preview booked vs open dates on property calendars.
-  - Submit rental booking requests for specific dates.
-- **🏠 Landlord Dashboard (`/landlord-dashboard`)**:
-  - Create property listings with price, location, description, and amenity tags.
-  - View account verification status (`PENDING_VERIFICATION` vs `APPROVED`).
-  - Interactive **Visual Availability Calendar**: Block or unblock property dates.
-  - Review incoming tenant booking requests and approve/reject them.
-- **🛡 Admin Dashboard (`/admin`)**:
-  - Live KPI Stat Cards overviewing platform counts.
-  - **Landlord Verification Queue**: Approve or reject new landlord account applications.
-  - **Listing Approval Queue**: Review and approve property listings submitted by landlords.
-  - **Dispute / Complaint Management**: Track, review, and resolve platform complaints.
-  - **Tenant Booking Approval Queue**: Final platform authorization for tenant rental bookings.
+### 💬 2. Tenant-Landlord Messaging Chat Thread
+- **Listing-Linked Messaging**: Direct chat thread between tenants and landlords attached to specific property listings.
+- **Interactive Chat Modal (`ChatModal.jsx`)**: Real-time message log displaying timestamps, sender roles (`Tenant`, `Landlord`, `System`), and instant refresh.
 
 ---
 
-### 🔄 3. 3-Tier Multi-Role Booking Workflow
+### 🛡 3. Tenant Blacklist & Trust Score System
+- **Weighted Trust Scoring Engine**:
+  - Base Score: **100 points**.
+  - **Landlord Flags**: Penalty based on severity (`critical`: -30, `high`: -20, `medium`: -10, `low`: -5).
+  - **Time-Decay Recency Factor**: Flags decay over time (100% impact ≤30 days, 75% 31–90 days, 50% 91–180 days, 25% >180 days).
+  - **Payment History**: `on_time` (+2 bonus), `late` (-5), `unpaid` (-15).
+  - **Normalized Score Bands**:
+    - 🟢 `90 - 100`: **Excellent**
+    - 🔵 `75 - 89`: **Good**
+    - 🟡 `60 - 74`: **Fair**
+    - 🟠 `40 - 59`: **At Risk**
+    - 🔴 `< 40`: **Blacklisted**
+- **Provisional Exclusion & Dispute Mechanism**:
+  - Tenants can submit appeals (`TrustScoreModal.jsx`) for flagged entries.
+  - Submitting an appeal sets `isProvisionallyExcluded = true` (0 point penalty deducted during active review) and recalculates trust score instantly.
+- **Admin Review Queue (`TrustScoreQueue.jsx`)**:
+  - Embedded in `AdminDashboard.jsx`. Admins can review pending appeals to **Approve (Dismiss Flag)** or **Reject (Reinstate Penalty)**.
+
+---
+
+### 🔄 4. 3-Tier Multi-Role Booking Workflow
 ```mermaid
 graph TD
     A["👤 Tenant selects dates & submits request"] --> B["Status: pending_landlord"]
@@ -113,7 +121,7 @@ graph TD
 
 ---
 
-### 🎨 4. High-Contrast Dark Glassmorphism UI
+### 🎨 5. High-Contrast Dark Glassmorphism UI
 - Modern dark-navy glassmorphic theme (`rgba(13, 20, 37, 0.85)` with blur backdrop filter).
 - High-contrast text & badges for high legibility across dark backgrounds.
 - **Role-Distinct Glowing Top-Border Accents**:
@@ -137,16 +145,21 @@ rentease/
 │       │   ├── adminApi.js
 │       │   ├── listingsApi.js
 │       │   ├── bookingsApi.js
+│       │   ├── chatApi.js
+│       │   ├── trustScoreApi.js
 │       │   └── complaintsApi.js
 │       ├── components/          ← UI View Components
 │       │   ├── Header.jsx
 │       │   ├── Modal.jsx
 │       │   ├── auth/RoleGatewayModal.jsx
+│       │   ├── chat/ChatModal.jsx
+│       │   ├── trustScore/TrustScoreModal.jsx
 │       │   ├── admin/
 │       │   │   ├── StatCards.jsx
 │       │   │   ├── LandlordTable.jsx
 │       │   │   ├── ListingQueue.jsx
 │       │   │   ├── BookingQueue.jsx
+│       │   │   ├── TrustScoreQueue.jsx
 │       │   │   └── AvailabilityCalendar.jsx
 │       └── pages/               ← Dashboard Views
 │           ├── UserDashboard.jsx
@@ -159,19 +172,27 @@ rentease/
     │   ├── User.js
     │   ├── Listing.js
     │   ├── Booking.js
+    │   ├── Chat.js
+    │   ├── TrustScore.js
     │   └── Complaint.js
     ├── controllers/             ← CONTROLLER LAYER (C)
     │   ├── authController.js
     │   ├── listingController.js
     │   ├── bookingController.js
+    │   ├── chatController.js
+    │   ├── trustScoreController.js
     │   ├── adminController.js
     │   └── complaintController.js
     ├── routes/                  ← ROUTING TABLE
     │   ├── authRoutes.js
     │   ├── listingRoutes.js
     │   ├── bookingRoutes.js
+    │   ├── chatRoutes.js
+    │   ├── trustScoreRoutes.js
     │   ├── adminRoutes.js
     │   └── complaintRoutes.js
+    ├── middleware/
+    │   └── auth.middleware.js   ← Auth & RBAC Middleware
     ├── services/
     │   └── emailService.js      ← Nodemailer Email Dispatch
     └── server.js                ← Application Entry Point
@@ -247,6 +268,22 @@ Open **http://localhost:5173** in your browser.
 | `GET` | `/api/listings` | Get property listings |
 | `POST` | `/api/listings` | Landlord submits property listing |
 | `PATCH` | `/api/listings/:id/availability` | Landlord updates booked dates calendar |
+
+### 💬 Chat (`/api/chats`)
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/chats` | Fetch chat threads for user |
+| `GET` | `/api/chats/listing/:listingId` | Get or create chat thread for listing |
+| `POST` | `/api/chats/:chatId/messages` | Send message in chat thread |
+
+### 🛡 Trust Score & Blacklist (`/api/trust-score`)
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/trust-score/:tenantId` | Fetch trust score, band, flags, and audit trail |
+| `POST` | `/api/trust-score/flag` | Landlord flags a tenant |
+| `POST` | `/api/trust-score/appeal` | Tenant submits appeal (provisionally excludes flag penalty) |
+| `PATCH` | `/api/trust-score/review-appeal` | Admin approves or rejects appeal |
+| `GET` | `/api/trust-score/admin/queue` | Admin trust score & appeals queue |
 
 ### 📅 Bookings (`/api/bookings`)
 | Method | Endpoint | Description |
