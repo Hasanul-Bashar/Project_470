@@ -4,10 +4,11 @@ const api = axios.create({ baseURL: '/api' });
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('mock_token') || '';
-  const userData = localStorage.getItem('user_data');
+  const userProfile = localStorage.getItem('user_profile') || localStorage.getItem('user_data');
   config.headers['Authorization'] = `Bearer ${token}`;
-  if (userData) {
-    config.headers['x-user-data'] = userData;
+  if (userProfile) {
+    config.headers['x-user-profile'] = userProfile;
+    config.headers['x-user-data'] = userProfile;
   }
   return config;
 });
