@@ -235,7 +235,6 @@ export default function UserDashboard() {
           </button>
         </div>
       </div>
-      </div>
 
       {/* ── MY BOOKING REQUESTS STATUS TRACKER ─────────────────────── */}
       <div
