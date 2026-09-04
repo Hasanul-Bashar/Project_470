@@ -32,14 +32,26 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ── Serverless Mongoose Connection Cache ───────────────────────
 let isConnected = false;
+let isConnecting = false;
+let lastErrorTime = 0;
+
 const connectDB = async () => {
   if (isConnected && mongoose.connection.readyState === 1) return;
+  if (isConnecting) return;
+  if (Date.now() - lastErrorTime < 10000) return;
+
+  isConnecting = true;
   try {
-    const db = await mongoose.connect(MONGO_URI);
+    const db = await mongoose.connect(MONGO_URI, {
+      serverSelectionTimeoutMS: 2500,
+    });
     isConnected = db.connections[0].readyState === 1;
     console.log('✅ MongoDB connected');
   } catch (err) {
+    lastErrorTime = Date.now();
     console.error('❌ MongoDB connection error:', err.message);
+  } finally {
+    isConnecting = false;
   }
 };
 

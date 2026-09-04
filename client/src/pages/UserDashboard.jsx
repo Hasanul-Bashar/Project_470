@@ -14,6 +14,7 @@ import SpatialSearchFilter from '../components/SpatialSearchFilter';
 import NeighborhoodInfo from '../components/NeighborhoodInfo';
 import PolygonMap from '../components/PolygonMap';
 import { getImageUrl, PLACEHOLDER_IMAGE } from '../utils/imageUtils';
+import AiAssistantWidget from '../components/assistant/AiAssistantWidget';
 
 export default function UserDashboard() {
   const { user } = useAuth();
@@ -54,6 +55,7 @@ export default function UserDashboard() {
 
   // Feature 2: Tenant-Landlord Chat
   const [chatListing, setChatListing] = useState(null);
+  const [isAiAssistantOpen, setIsAiAssistantOpen] = useState(false);
 
   // Feature 3: Expanded listing view (for reviews)
   const [expandedListingId, setExpandedListingId] = useState(null);
@@ -217,6 +219,14 @@ export default function UserDashboard() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <button
+            className="btn btn-primary"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', padding: '0.55rem 1rem' }}
+            onClick={() => setIsAiAssistantOpen((prev) => !prev)}
+            id="btn-user-ai-assistant"
+          >
+            <span>🤖 AI Assistant</span>
+          </button>
           <button
             className="btn btn-secondary"
             onClick={() => window.location.href = '/rent-tracking'}
@@ -903,6 +913,58 @@ export default function UserDashboard() {
             </div>
           </form>
         </Modal>
+      )}
+
+      {/* AI Rental Search Assistant Widget */}
+      <AiAssistantWidget
+        isOpen={isAiAssistantOpen}
+        onClose={() => setIsAiAssistantOpen(false)}
+        onOpenBooking={(listing) => setBookingListing(listing)}
+        onOpenCalendar={(listing) => setActiveCalendarListing(listing)}
+        onOpenChat={(listing) => setChatListing(listing)}
+      />
+
+      {/* Floating AI Assistant Launcher Button (visible when widget is closed) */}
+      {!isAiAssistantOpen && (
+        <button
+          onClick={() => setIsAiAssistantOpen(true)}
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            padding: '0.75rem 1.25rem',
+            borderRadius: '30px',
+            background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)',
+            color: '#ffffff',
+            fontWeight: 700,
+            fontSize: '0.9rem',
+            border: 'none',
+            cursor: 'pointer',
+            boxShadow: '0 8px 24px rgba(139, 92, 246, 0.45)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.55rem',
+            zIndex: 9998,
+            transition: 'all 0.2s ease',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.05)')}
+          onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+        >
+          <span style={{ fontSize: '1.2rem' }}>🤖</span>
+          <span>AI Rental Assistant</span>
+          <span
+            style={{
+              fontSize: '0.65rem',
+              background: '#10b981',
+              color: '#ffffff',
+              padding: '0.15rem 0.45rem',
+              borderRadius: '10px',
+              fontWeight: 800,
+            }}
+          >
+            AI
+          </span>
+        </button>
       )}
 
       {/* Toasts */}
