@@ -251,6 +251,51 @@ export default function RoleGatewayModal() {
               <button type="submit" className="submit-btn" disabled={loading}>
                 {loading ? 'Authenticating...' : `Log In as ${activeRole.toUpperCase()}`}
               </button>
+
+              {/* ⚡ Quick 1-Click Demo Login Shortcuts */}
+              <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px dashed rgba(255,255,255,0.1)' }}>
+                <p style={{ fontSize: '0.78rem', color: '#94a3b8', marginBottom: '0.5rem', textAlign: 'center' }}>
+                  ⚡ Quick Demo Login (Click to auto-fill & login instantly):
+                </p>
+                <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline"
+                    style={{ fontSize: '0.75rem', padding: '4px 8px' }}
+                    onClick={() => {
+                      setActiveRole('user');
+                      setEmail('demo.user@rentease.com');
+                      setPassword('User1234');
+                    }}
+                  >
+                    👤 Tenant Demo
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline"
+                    style={{ fontSize: '0.75rem', padding: '4px 8px' }}
+                    onClick={() => {
+                      setActiveRole('landlord');
+                      setEmail('alice.rahman@landlord.com');
+                      setPassword('Admin1234');
+                    }}
+                  >
+                    🏠 Landlord Demo
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline"
+                    style={{ fontSize: '0.75rem', padding: '4px 8px' }}
+                    onClick={() => {
+                      setActiveRole('admin');
+                      setEmail('admin@rentease.com');
+                      setPassword('Admin1234');
+                    }}
+                  >
+                    🛡 Admin Demo
+                  </button>
+                </div>
+              </div>
             </form>
           )}
 

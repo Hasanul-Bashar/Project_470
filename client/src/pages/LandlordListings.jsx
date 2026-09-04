@@ -207,6 +207,22 @@ export default function LandlordListings() {
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
           <button
             className="btn btn-secondary"
+            onClick={() => navigate('/rent-tracking')}
+            id="btn-open-rent-tracking"
+            title="Track rent payments per tenant per month"
+          >
+            💳 Rent Tracking
+          </button>
+          <button
+            className="btn btn-secondary"
+            onClick={() => navigate('/maintenance')}
+            id="btn-open-maintenance"
+            title="Manage maintenance requests and repair stages"
+          >
+            🛠 Maintenance
+          </button>
+          <button
+            className="btn btn-secondary"
             onClick={() => navigate('/landlord-analytics')}
             id="btn-open-analytics"
             title="View your property analytics"

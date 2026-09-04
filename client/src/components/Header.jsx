@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import NotificationBell from './notifications/NotificationBell';
 
 export default function Header() {
   const { user, openRoleModal, logout } = useAuth();
@@ -49,6 +50,27 @@ export default function Header() {
             </NavLink>
           )}
           <NavLink
+            to="/rent-tracking"
+            id="nav-rent-tracking"
+            className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+          >
+            💳 Rent Tracking
+          </NavLink>
+          <NavLink
+            to="/maintenance"
+            id="nav-maintenance"
+            className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+          >
+            🛠 Maintenance
+          </NavLink>
+          <NavLink
+            to="/agreements"
+            id="nav-agreements"
+            className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+          >
+            📄 Agreements
+          </NavLink>
+          <NavLink
             to="/complaints"
             id="nav-complaints"
             className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
@@ -72,6 +94,9 @@ export default function Header() {
                 {user.role === 'landlord' && <span className="role-pill landlord-pill">🏠 Landlord</span>}
                 {user.role === 'admin' && <span className="role-pill admin-pill">🛡 Admin</span>}
               </div>
+
+              {/* 🔔 Notification Bell */}
+              <NotificationBell />
 
               {/* Switch Role Button */}
               <button

@@ -8,9 +8,6 @@ import AvailabilityCalendar from '../components/admin/AvailabilityCalendar';
 import CompareBar from '../components/CompareBar';
 import CompareModal from '../components/CompareModal';
 import ReviewSection from '../components/ReviewSection';
-import ChatModal from '../components/chat/ChatModal';
-import TrustScoreModal from '../components/trustScore/TrustScoreModal';
-import AiAssistantWidget from '../components/assistant/AiAssistantWidget';
 
 export default function UserDashboard() {
   const { user } = useAuth();
@@ -45,9 +42,6 @@ export default function UserDashboard() {
 
   // Modal States
   const [activeCalendarListing, setActiveCalendarListing] = useState(null);
-  const [chatListing, setChatListing] = useState(null);
-  const [isTrustScoreModalOpen, setIsTrustScoreModalOpen] = useState(false);
-  const [isAiAssistantOpen, setIsAiAssistantOpen] = useState(false);
   const [bookingListing, setBookingListing] = useState(null);
   const [bookingDateInput, setBookingDateInput] = useState('');
   const [inquiryMsg, setInquiryMsg] = useState('');
@@ -200,27 +194,29 @@ export default function UserDashboard() {
   return (
     <div className="container">
       {/* Page Header */}
-      <div className="dashboard-header" style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <div className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <div>
           <h1 className="page-title">Tenant Rental Dashboard</h1>
           <p className="page-subtitle">
             Browse verified rental properties, select dates to request rentals, and track live approval status.
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button
-            className="btn btn-primary"
-            style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', padding: '0.55rem 1rem' }}
-            onClick={() => setIsAiAssistantOpen((prev) => !prev)}
+            className="btn btn-secondary"
+            onClick={() => window.location.href = '/rent-tracking'}
+            id="btn-user-rent-tracking"
+            title="View your monthly rent payments and status"
           >
-            <span>🤖 AI Rental Assistant</span>
+            💳 My Rent Payments
           </button>
           <button
-            className="btn"
-            style={{ background: 'rgba(139, 92, 246, 0.15)', color: '#c084fc', border: '1px solid rgba(139, 92, 246, 0.3)', padding: '0.55rem 1rem' }}
-            onClick={() => setIsTrustScoreModalOpen(true)}
+            className="btn btn-secondary"
+            onClick={() => window.location.href = '/maintenance'}
+            id="btn-user-maintenance"
+            title="Report & track maintenance issues"
           >
-            🛡 My Trust Score Profile
+            🛠️ Maintenance
           </button>
         </div>
       </div>
@@ -844,58 +840,6 @@ export default function UserDashboard() {
             </div>
           </form>
         </Modal>
-      )}
-
-      {/* AI Rental Search Assistant Widget */}
-      <AiAssistantWidget
-        isOpen={isAiAssistantOpen}
-        onClose={() => setIsAiAssistantOpen(false)}
-        onOpenBooking={(listing) => setBookingListing(listing)}
-        onOpenCalendar={(listing) => setActiveCalendarListing(listing)}
-        onOpenChat={(listing) => setChatListing(listing)}
-      />
-
-      {/* Floating AI Assistant Launcher Button (visible when widget is closed) */}
-      {!isAiAssistantOpen && (
-        <button
-          onClick={() => setIsAiAssistantOpen(true)}
-          style={{
-            position: 'fixed',
-            bottom: '24px',
-            right: '24px',
-            padding: '0.75rem 1.25rem',
-            borderRadius: '30px',
-            background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)',
-            color: '#ffffff',
-            fontWeight: 700,
-            fontSize: '0.9rem',
-            border: 'none',
-            cursor: 'pointer',
-            boxShadow: '0 8px 24px rgba(139, 92, 246, 0.45)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.55rem',
-            zIndex: 9998,
-            transition: 'all 0.2s ease',
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.05)')}
-          onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
-        >
-          <span style={{ fontSize: '1.2rem' }}>🤖</span>
-          <span>AI Rental Assistant</span>
-          <span
-            style={{
-              fontSize: '0.65rem',
-              background: '#10b981',
-              color: '#ffffff',
-              padding: '0.15rem 0.45rem',
-              borderRadius: '10px',
-              fontWeight: 800,
-            }}
-          >
-            AI
-          </span>
-        </button>
       )}
 
       {/* Toast Alert */}

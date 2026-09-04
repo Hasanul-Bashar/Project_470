@@ -7,6 +7,9 @@ import LandlordListings from './pages/LandlordListings';
 import AdminDashboard from './pages/AdminDashboard';
 import ComplaintsPage from './pages/ComplaintsPage';
 import AnalyticsDashboard from './pages/AnalyticsDashboard';
+import RentTrackingPage from './pages/RentTrackingPage';
+import MaintenancePage from './pages/MaintenancePage';
+import AgreementsPage from './pages/AgreementsPage';
 
 function RootRedirect() {
   const { user } = useAuth();
@@ -33,6 +36,9 @@ function App() {
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/complaints" element={<ComplaintsPage />} />
             <Route path="/landlord-analytics" element={<AnalyticsDashboard />} />
+            <Route path="/rent-tracking" element={<RentTrackingPage />} />
+            <Route path="/maintenance" element={<MaintenancePage />} />
+            <Route path="/agreements" element={<AgreementsPage />} />
 
             {/* Fallback route */}
             <Route path="*" element={<RootRedirect />} />

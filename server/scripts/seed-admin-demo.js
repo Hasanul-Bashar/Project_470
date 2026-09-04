@@ -25,6 +25,11 @@ const bcrypt   = require('bcryptjs');
 const User      = require('../models/User');
 const Listing   = require('../models/Listing');
 const Complaint = require('../models/Complaint');
+const RentPayment = require('../models/RentPayment');
+const MaintenanceRequest = require('../models/MaintenanceRequest');
+const Notification = require('../models/Notification');
+const Agreement = require('../models/Agreement');
+const { generateAgreementPdf } = require('../services/agreementPdfService');
 
 
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/rentease';
@@ -32,6 +37,7 @@ const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/rentease';
 // ── Demo account emails (used for cleanup before re-seed) ─────
 const DEMO_EMAILS = [
   'admin@rentease.com',
+  'admin2@rentease.com',
   'demo.user@rentease.com',
   'alice.rahman@landlord.com',
   'bob.hasan@landlord.com',
@@ -64,17 +70,28 @@ async function seed() {
     const adminHash  = await bcrypt.hash('Admin1234', SALT);
     const userHash   = await bcrypt.hash('User1234',  SALT);
 
-    // ── 1. Admin ───────────────────────────────────────────────
+    // ── 1. Admins ──────────────────────────────────────────────
     await User.create({
       firstName: 'Super',
       lastName:  'Admin',
       email:     'admin@rentease.com',
       password:  adminHash,
       role:      'admin',
-      isVerified: true,
-      verificationStatus: 'approved',
+      isOtpVerified: true,
+      isVerifiedLandlord: true,
     });
-    console.log('👤 Admin created:      admin@rentease.com  /  Admin1234');
+
+    await User.create({
+      firstName: 'Secondary',
+      lastName:  'Admin',
+      email:     'admin2@rentease.com',
+      password:  adminHash,
+      role:      'admin',
+      isOtpVerified: true,
+      isVerifiedLandlord: true,
+    });
+    console.log('👤 Admin 1 created:    admin@rentease.com  /  Admin1234');
+    console.log('👤 Admin 2 created:    admin2@rentease.com /  Admin1234');
 
     // ── 2. Demo User (for complaint submission) ────────────────
     const demoUser = await User.create({
@@ -83,8 +100,8 @@ async function seed() {
       email:     'demo.user@rentease.com',
       password:  userHash,
       role:      'user',
-      isVerified: true,
-      verificationStatus: 'approved',
+      isOtpVerified: true,
+      isVerifiedLandlord: true,
     });
     console.log('👤 Demo user created:  demo.user@rentease.com  /  User1234');
 
@@ -181,6 +198,255 @@ async function seed() {
       },
     ]);
     console.log('📣 3 Complaints created (Pending | In Review | Resolved)');
+
+    // ── 6. Sample Rent Payments (Paid, Due, Overdue) ───────────
+    await RentPayment.deleteMany({});
+    const pastDueDate = new Date();
+    pastDueDate.setDate(pastDueDate.getDate() - 5); // 5 days ago (overdue)
+
+    const futureDueDate = new Date();
+    futureDueDate.setDate(futureDueDate.getDate() + 7); // 7 days in future (due)
+
+    await RentPayment.insertMany([
+      {
+        tenantId: demoUser._id.toString(),
+        tenantName: 'Demo User',
+        tenantEmail: 'demo.user@rentease.com',
+        landlordId: landlords[0]._id.toString(),
+        landlordName: 'Alice Rahman',
+        listingId: listings[0]._id,
+        listingTitle: 'Luxurious 3BHK in Gulshan',
+        month: '2026-08',
+        amount: 75000,
+        dueDate: new Date('2026-08-05'),
+        status: 'paid',
+        paidDate: new Date('2026-08-03'),
+        paymentMethod: 'Bank Transfer',
+        notes: 'August rent paid on time',
+        overdueFlagged: false,
+      },
+      {
+        tenantId: demoUser._id.toString(),
+        tenantName: 'Demo User',
+        tenantEmail: 'demo.user@rentease.com',
+        landlordId: landlords[0]._id.toString(),
+        landlordName: 'Alice Rahman',
+        listingId: listings[0]._id,
+        listingTitle: 'Luxurious 3BHK in Gulshan',
+        month: '2026-09',
+        amount: 75000,
+        dueDate: pastDueDate,
+        status: 'overdue',
+        paidDate: null,
+        paymentMethod: 'Cash',
+        notes: 'September rent overdue',
+        overdueFlagged: true,
+      },
+      {
+        tenantId: demoUser._id.toString(),
+        tenantName: 'Demo User',
+        tenantEmail: 'demo.user@rentease.com',
+        landlordId: landlords[1]._id.toString(),
+        landlordName: 'Bob Hasan',
+        listingId: listings[1]._id,
+        listingTitle: 'Cozy Studio in Dhanmondi',
+        month: '2026-09',
+        amount: 18000,
+        dueDate: futureDueDate,
+        status: 'due',
+        paidDate: null,
+        paymentMethod: 'bKash',
+        notes: 'Upcoming September rent',
+        overdueFlagged: false,
+      },
+    ]);
+    console.log('💳 3 Rent Records created (1 Paid | 1 Due | 1 Flagged Overdue)');
+
+    // ── 7. Sample Maintenance Requests ─────────────────────────
+    await MaintenanceRequest.deleteMany({});
+    await MaintenanceRequest.insertMany([
+      {
+        tenantId: demoUser._id.toString(),
+        tenantName: 'Demo User',
+        tenantEmail: 'demo.user@rentease.com',
+        landlordId: landlords[0]._id.toString(),
+        landlordName: 'Alice Rahman',
+        listingId: listings[0]._id,
+        listingTitle: 'Luxurious 3BHK in Gulshan',
+        category: 'Plumbing',
+        title: 'Leaking kitchen pipe under counter',
+        description: 'Water has been leaking steadily underneath the main kitchen sink cabinet. It requires immediate plumber inspection to avoid wood damage.',
+        urgency: 'Emergency',
+        photoUrl: 'https://images.unsplash.com/photo-1585704032915-c3400ca199e7?w=600&auto=format&fit=crop',
+        status: 'In Progress',
+        landlordNotes: 'Plumber booked for tomorrow morning at 10 AM.',
+        scheduledDate: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        cost: 120,
+        statusHistory: [
+          { status: 'Submitted', updatedAt: new Date(Date.now() - 48 * 60 * 60 * 1000), updatedBy: 'Demo User', note: 'Issue reported by tenant.' },
+          { status: 'Acknowledged', updatedAt: new Date(Date.now() - 24 * 60 * 60 * 1000), updatedBy: 'Alice Rahman', note: 'Landlord acknowledged issue.' },
+          { status: 'In Progress', updatedAt: new Date(), updatedBy: 'Alice Rahman', note: 'Technician dispatched.' },
+        ],
+      },
+      {
+        tenantId: demoUser._id.toString(),
+        tenantName: 'Demo User',
+        tenantEmail: 'demo.user@rentease.com',
+        landlordId: landlords[1]._id.toString(),
+        landlordName: 'Bob Hasan',
+        listingId: listings[1]._id,
+        listingTitle: 'Cozy Studio in Dhanmondi',
+        category: 'HVAC / AC',
+        title: 'Air conditioner not cooling properly',
+        description: 'The split AC unit in the bedroom blows warm air and makes a rattling sound when powered on.',
+        urgency: 'High',
+        photoUrl: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=600&auto=format&fit=crop',
+        status: 'Submitted',
+        landlordNotes: '',
+        scheduledDate: null,
+        cost: 0,
+        statusHistory: [
+          { status: 'Submitted', updatedAt: new Date(), updatedBy: 'Demo User', note: 'Maintenance request created.' },
+        ],
+      },
+      {
+        tenantId: demoUser._id.toString(),
+        tenantName: 'Demo User',
+        tenantEmail: 'demo.user@rentease.com',
+        landlordId: landlords[0]._id.toString(),
+        landlordName: 'Alice Rahman',
+        listingId: listings[0]._id,
+        listingTitle: 'Luxurious 3BHK in Gulshan',
+        category: 'Electrical',
+        title: 'Master bedroom main light switch loose',
+        description: 'The toggle switch for the overhead lights in the master bedroom feels loose and flickers occasionally.',
+        urgency: 'Medium',
+        photoUrl: 'https://images.unsplash.com/photo-1621905252507-b35492cc74b4?w=600&auto=format&fit=crop',
+        status: 'Resolved',
+        landlordNotes: 'Electrician replaced switch panel on Aug 20.',
+        scheduledDate: new Date('2026-08-20'),
+        cost: 45,
+        statusHistory: [
+          { status: 'Submitted', updatedAt: new Date('2026-08-18'), updatedBy: 'Demo User', note: 'Issue reported.' },
+          { status: 'Acknowledged', updatedAt: new Date('2026-08-19'), updatedBy: 'Alice Rahman', note: 'Acknowledged.' },
+          { status: 'In Progress', updatedAt: new Date('2026-08-19'), updatedBy: 'Alice Rahman', note: 'Electrician hired.' },
+          { status: 'Resolved', updatedAt: new Date('2026-08-20'), updatedBy: 'Alice Rahman', note: 'Switch replaced and tested.' },
+        ],
+      },
+    ]);
+    console.log('🛠️ 3 Maintenance Requests created (Submitted | In Progress | Resolved)');
+
+    // ── 8. Sample Notifications ────────────────────────────
+    await Notification.deleteMany({});
+    await Notification.insertMany([
+      {
+        recipientId: demoUser._id.toString(),
+        recipientEmail: 'demo.user@rentease.com',
+        recipientRole: 'user',
+        type: 'rent_overdue',
+        title: '🚨 Overdue Rent — Luxurious 3BHK in Gulshan',
+        message: 'Your rent of ৳75,000 for September 2026 is OVERDUE. Please pay immediately.',
+        link: '/rent-tracking',
+        isRead: false,
+      },
+      {
+        recipientId: demoUser._id.toString(),
+        recipientEmail: 'demo.user@rentease.com',
+        recipientRole: 'user',
+        type: 'maintenance_updated',
+        title: 'Maintenance Update: 🛠️ In Progress',
+        message: 'Your "Leaking kitchen pipe" request has been updated to stage "In Progress". Plumber booked for tomorrow.',
+        link: '/maintenance',
+        isRead: false,
+      },
+      {
+        recipientId: demoUser._id.toString(),
+        recipientEmail: 'demo.user@rentease.com',
+        recipientRole: 'user',
+        type: 'rent_due',
+        title: '💳 Rent Due — Cozy Studio in Dhanmondi',
+        message: 'Your rent of ৳18,000 for September 2026 is due. Please pay before the due date.',
+        link: '/rent-tracking',
+        isRead: false,
+      },
+      {
+        recipientId: demoUser._id.toString(),
+        recipientEmail: 'demo.user@rentease.com',
+        recipientRole: 'user',
+        type: 'maintenance_resolved',
+        title: '✅ Maintenance Resolved: Electrical Switch',
+        message: 'Your "Master bedroom light switch" repair has been resolved. Electrician replaced the switch panel.',
+        link: '/maintenance',
+        isRead: true,
+      },
+      {
+        recipientId: landlords[0]._id.toString(),
+        recipientEmail: 'alice.rahman@landlord.com',
+        recipientRole: 'landlord',
+        type: 'maintenance_submitted',
+        title: '🔴 EMERGENCY — New Maintenance Ticket',
+        message: 'Tenant Demo User submitted an Emergency Plumbing issue at Luxurious 3BHK in Gulshan.',
+        link: '/maintenance',
+        isRead: false,
+      },
+      {
+        recipientId: 'admin-001',
+        recipientEmail: 'admin@rentease.com',
+        recipientRole: 'admin',
+        type: 'system',
+        title: 'ℹ️ System: 2 Overdue Rent Alerts Active',
+        message: 'There are currently 2 tenant rent records flagged as overdue across the platform.',
+        link: '/rent-tracking',
+        isRead: false,
+      },
+    ]);
+    console.log('🔔 6 Notifications seeded (3 unread for tenant, 1 landlord, 1 admin)');
+
+    // ── 9. Sample Rental Agreements ─────────────────────────────
+    await Agreement.deleteMany({});
+
+    const sampleAgreementData = {
+      agreementId: 'AGR-2026-9A8F',
+      landlordId: landlords[0]._id.toString(),
+      landlordName: 'Alice Rahman',
+      landlordEmail: 'alice.rahman@landlord.com',
+      landlordPhone: '+880 1711-889900',
+      tenantId: demoUser._id.toString(),
+      tenantName: 'Demo User',
+      tenantEmail: 'demo.user@rentease.com',
+      tenantPhone: '+880 1819-554433',
+      listingId: listings[0]._id,
+      listingTitle: 'Luxurious 3BHK in Gulshan',
+      propertyAddress: 'House 42, Road 11, Block D, Gulshan-2',
+      city: 'Dhaka',
+      rentAmount: 75000,
+      depositAmount: 150000,
+      paymentDueDate: 5,
+      startDate: new Date('2026-01-01'),
+      endDate: new Date('2026-12-31'),
+      leaseTermMonths: 12,
+      clauses: [
+        { title: 'Monthly Payment & Overdue Terms', text: 'Rent must be cleared on or before the 5th of every month. Overdue payments incur a 2% daily penalty.' },
+        { title: 'Maintenance & Service Requests', text: 'Tenant is required to log all plumbing, electrical, and structural repair requests via the RentEase Maintenance Module.' },
+        { title: 'Subletting Restriction', text: 'Subletting or secondary leasing without explicit written authorization from the Landlord is strictly prohibited.' },
+        { title: 'Security Deposit Refund', text: 'The 2-month security deposit will be refunded within 14 business days post move-out inspection.' },
+      ],
+      status: 'Finalized',
+      createdBy: landlords[0]._id.toString(),
+    };
+
+    const pdfRes = await generateAgreementPdf(sampleAgreementData);
+
+    await Agreement.create({
+      ...sampleAgreementData,
+      sha256Hash: pdfRes.sha256Hash,
+      pdfFilename: pdfRes.filename,
+      pdfGeneratedAt: new Date(),
+      isVerified: true,
+      lastVerifiedAt: new Date(),
+    });
+
+    console.log('📄 1 Rental Agreement created & PDF generated (SHA-256: ' + pdfRes.sha256Hash.substring(0, 16) + '…)');
 
     // ── Summary ────────────────────────────────────────────────
     console.log('\n' + '━'.repeat(54));
