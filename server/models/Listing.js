@@ -7,8 +7,44 @@ const ListingSchema = new mongoose.Schema(
     description: { type: String, required: true },
     amenities: [{ type: String }],
     price: { type: Number, required: true },
-    size:  { type: Number, default: null }, // optional: square footage (sqft) for comparison tool
+    size: { type: Number, default: 1000 }, // square footage (sqft)
     photos: [{ type: String }],
+
+    // Manually Added Nearby Facilities (Schools, Hospitals, Transit, Shopping)
+    nearbyFacilities: [
+      {
+        name: { type: String, required: true },
+        category: { type: String, enum: ['Schools', 'Hospitals', 'Transport', 'Shopping', 'Other'], default: 'Schools' },
+        distance: { type: String, default: 'Nearby' },
+      },
+    ],
+    
+    propertyType: {
+      type: String,
+      enum: ['Apartment', 'House', 'Sublet', 'Studio', 'Villa', 'Commercial'],
+      default: 'Apartment',
+    },
+    furnishedStatus: {
+      type: String,
+      enum: ['Furnished', 'Unfurnished', 'Semi-Furnished'],
+      default: 'Furnished',
+    },
+
+    // Geospatial Coordinates & Neighborhood Polygon Area Tagging
+    coordinates: {
+      lat: { type: Number, default: 23.777176 },
+      lng: { type: Number, default: 90.399452 },
+    },
+    polygon: [
+      {
+        lat: { type: Number },
+        lng: { type: Number },
+      },
+    ],
+    
+    // Spatial Indexing (Geohash & Grid Bucket)
+    geohash: { type: String, default: '' },
+    gridKey: { type: String, default: '' },
 
     status: {
       type: String,
@@ -28,3 +64,4 @@ const ListingSchema = new mongoose.Schema(
 );
 
 module.exports = mongoose.models.Listing || mongoose.model('Listing', ListingSchema);
+

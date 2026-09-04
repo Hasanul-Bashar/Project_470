@@ -13,8 +13,17 @@ api.interceptors.request.use((config) => {
 export const getListings = () =>
   api.get('/listings');
 
+export const searchListings = (params) =>
+  api.get('/listings/search', { params });
+
 export const createListing = (listingData) =>
   api.post('/listings', listingData);
 
 export const updateListingAvailability = (id, bookedDates) =>
   api.patch(`/listings/${id}/availability`, { bookedDates });
+
+export const uploadPhotos = (formData) =>
+  api.post('/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+

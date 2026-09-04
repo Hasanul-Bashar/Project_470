@@ -77,8 +77,10 @@ async function seed() {
       email:     'admin@rentease.com',
       password:  adminHash,
       role:      'admin',
+      isVerified: true,
       isOtpVerified: true,
       isVerifiedLandlord: true,
+      verificationStatus: 'approved',
     });
 
     await User.create({
@@ -100,9 +102,12 @@ async function seed() {
       email:     'demo.user@rentease.com',
       password:  userHash,
       role:      'user',
+      isVerified: true,
       isOtpVerified: true,
       isVerifiedLandlord: true,
+      verificationStatus: 'approved',
     });
+
     console.log('👤 Demo user created:  demo.user@rentease.com  /  User1234');
 
     // ── 3. Landlords ──────────────────────────────────────────
@@ -142,6 +147,13 @@ async function seed() {
         description: 'A stunning fully-furnished 3-bedroom apartment with modern amenities, 24/7 security, a rooftop garden, and a dedicated car park. Perfect for families looking for premium urban living.',
         amenities:   ['WiFi', 'Generator Backup', 'Parking', 'Security Guard', 'Gym', 'Rooftop Garden', 'Lift'],
         price:       75000,
+        size:        1800,
+        propertyType: 'Apartment',
+        furnishedStatus: 'Furnished',
+        coordinates: { lat: 23.7925, lng: 90.4078 },
+        polygon:     [{ lat: 23.791, lng: 90.406 }, { lat: 23.794, lng: 90.406 }, { lat: 23.794, lng: 90.409 }, { lat: 23.791, lng: 90.409 }],
+        geohash:     'wh0r7',
+        gridKey:     'grid_23.750_90.400',
         photos:      [],
         status:      'pending',
         landlordId:  landlords[0]._id,
@@ -152,6 +164,13 @@ async function seed() {
         description: 'A beautifully designed studio apartment ideal for students and young professionals. Walking distance to Rabindra Sarobar lake, restaurants, cafes, and public transport.',
         amenities:   ['WiFi', 'AC', 'Hot Water', 'Security Camera'],
         price:       18000,
+        size:        600,
+        propertyType: 'Studio',
+        furnishedStatus: 'Furnished',
+        coordinates: { lat: 23.7542, lng: 90.3769 },
+        polygon:     [{ lat: 23.752, lng: 90.374 }, { lat: 23.756, lng: 90.374 }, { lat: 23.756, lng: 90.378 }, { lat: 23.752, lng: 90.378 }],
+        geohash:     'wh0r2',
+        gridKey:     'grid_23.750_90.350',
         photos:      [],
         status:      'pending',
         landlordId:  landlords[1]._id,
@@ -162,11 +181,19 @@ async function seed() {
         description: 'A well-lit, spacious 2-bedroom apartment in the heart of Banani. Features a European-style modular kitchen, high-speed fibre internet, and a calm, tree-lined street view.',
         amenities:   ['WiFi', 'Generator', 'Lift', 'Parking', 'Security Camera', 'Intercom'],
         price:       45000,
+        size:        1200,
+        propertyType: 'Apartment',
+        furnishedStatus: 'Semi-Furnished',
+        coordinates: { lat: 23.7937, lng: 90.4066 },
+        polygon:     [{ lat: 23.792, lng: 90.404 }, { lat: 23.795, lng: 90.404 }, { lat: 23.795, lng: 90.408 }, { lat: 23.792, lng: 90.408 }],
+        geohash:     'wh0r7',
+        gridKey:     'grid_23.750_90.400',
         photos:      [],
         status:      'pending',
         landlordId:  landlords[2]._id,
       },
     ]);
+
     console.log('📋 3 Listings created  (status: pending)');
 
     // ── 5. Three Complaints ────────────────────────────────────

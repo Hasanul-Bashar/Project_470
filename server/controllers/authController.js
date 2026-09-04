@@ -190,7 +190,7 @@ exports.login = async (req, res) => {
           message: 'Admin authenticated successfully.',
           token: mockAdminToken,
           user: {
-            id: 'admin-001',
+            id: dbAdmin?._id || 'admin-001',
             email: cleanEmail,
             role: 'admin',
             name: cleanEmail.includes('2') ? 'Secondary Admin' : 'Super Admin',
@@ -199,9 +199,11 @@ exports.login = async (req, res) => {
           },
         });
       }
+    }
 
       return res.status(401).json({ message: 'Invalid Admin credentials.' });
     }
+
 
     const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {

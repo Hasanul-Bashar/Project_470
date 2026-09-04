@@ -4,7 +4,9 @@ const listingController = require('../controllers/listingController');
 const { authenticate } = require('../middleware/auth.middleware');
 
 router.get('/', authenticate, listingController.getListings);
+router.get('/search', authenticate, listingController.searchListings);
 router.post('/', authenticate, listingController.createListing);
 router.patch('/:id/availability', authenticate, listingController.updateAvailability);
 
 module.exports = router;
+

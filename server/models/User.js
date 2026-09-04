@@ -21,8 +21,16 @@ const UserSchema = new mongoose.Schema(
     otpExpiresAt: { type: Date, default: null },
 
     isFirstLogin: { type: Boolean, default: true },
+
+    savedListings: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Listing',
+      },
+    ],
   },
   { timestamps: true }
 );
 
 module.exports = mongoose.models.User || mongoose.model('User', UserSchema);
+

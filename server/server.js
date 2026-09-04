@@ -3,16 +3,19 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
 
-const authRoutes       = require('./routes/authRoutes');
-const adminRoutes      = require('./routes/adminRoutes');
-const complaintRoutes  = require('./routes/complaintRoutes');
-const listingRoutes    = require('./routes/listingRoutes');
-const bookingRoutes    = require('./routes/bookingRoutes');
-const reviewRoutes     = require('./routes/reviewRoutes');
-const analyticsRoutes  = require('./routes/analyticsRoutes');
-const chatRoutes       = require('./routes/chatRoutes');
-const trustScoreRoutes = require('./routes/trustScoreRoutes');
-const assistantRoutes  = require('./routes/assistantRoutes');
+const path = require('path');
+const authRoutes         = require('./routes/authRoutes');
+const adminRoutes        = require('./routes/adminRoutes');
+const complaintRoutes    = require('./routes/complaintRoutes');
+const listingRoutes      = require('./routes/listingRoutes');
+const bookingRoutes      = require('./routes/bookingRoutes');
+const reviewRoutes       = require('./routes/reviewRoutes');
+const analyticsRoutes    = require('./routes/analyticsRoutes');
+const chatRoutes         = require('./routes/chatRoutes');
+const uploadRoutes       = require('./routes/uploadRoutes');
+const userRoutes         = require('./routes/userRoutes');
+const placesRoutes       = require('./routes/placesRoutes');
+const assistantRoutes    = require('./routes/assistantRoutes');
 const rentRoutes         = require('./routes/rentRoutes');
 const maintenanceRoutes  = require('./routes/maintenanceRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
@@ -22,9 +25,10 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/rentease';
 
-// ── CORS & Body Parsing ───────────────────────────────────────
+// ── CORS & Body Parsing & Static Uploads ───────────────────────
 app.use(cors({ origin: true, credentials: true }));
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ── Serverless Mongoose Connection Cache ───────────────────────
 let isConnected = false;
@@ -46,20 +50,22 @@ app.use(async (req, res, next) => {
 });
 
 // ── Routes (MVC Pattern Controller Mounts) ────────────────────
-app.use('/api/auth',         authRoutes);
-app.use('/api/admin',        adminRoutes);
-app.use('/api/complaints',   complaintRoutes);
-app.use('/api/listings',     listingRoutes);
-app.use('/api/bookings',     bookingRoutes);
-app.use('/api/reviews',      reviewRoutes);
-app.use('/api/analytics',    analyticsRoutes);
-app.use('/api/chats',        chatRoutes);
-app.use('/api/trust-score',  trustScoreRoutes);
-app.use('/api/assistant',    assistantRoutes);
-app.use('/api/rent',           rentRoutes);
-app.use('/api/maintenance',    maintenanceRoutes);
-app.use('/api/notifications',  notificationRoutes);
-app.use('/api/agreements',     agreementRoutes);
+app.use('/api/auth',          authRoutes);
+app.use('/api/admin',         adminRoutes);
+app.use('/api/complaints',    complaintRoutes);
+app.use('/api/listings',      listingRoutes);
+app.use('/api/bookings',      bookingRoutes);
+app.use('/api/reviews',       reviewRoutes);
+app.use('/api/analytics',     analyticsRoutes);
+app.use('/api/chats',         chatRoutes);
+app.use('/api/upload',        uploadRoutes);
+app.use('/api/users',         userRoutes);
+app.use('/api/places',        placesRoutes);
+app.use('/api/assistant',     assistantRoutes);
+app.use('/api/rent',          rentRoutes);
+app.use('/api/maintenance',   maintenanceRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/agreements',    agreementRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {

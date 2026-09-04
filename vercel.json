@@ -19,6 +19,10 @@
       "dest": "server/server.js"
     },
     {
+      "src": "/uploads/(.*)",
+      "dest": "server/server.js"
+    },
+    {
       "handle": "filesystem"
     },
     {

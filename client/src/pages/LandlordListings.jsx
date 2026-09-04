@@ -6,6 +6,10 @@ import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Modal';
 import AvailabilityCalendar from '../components/admin/AvailabilityCalendar';
 import ReviewSection from '../components/ReviewSection';
+import RichTextEditor from '../components/RichTextEditor';
+import ImageUpload from '../components/ImageUpload';
+import PolygonMap from '../components/PolygonMap';
+import { getImageUrl, PLACEHOLDER_IMAGE } from '../utils/imageUtils';
 
 export default function LandlordListings() {
   const { user } = useAuth();
@@ -32,12 +36,36 @@ export default function LandlordListings() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [activeCalendarListing, setActiveCalendarListing] = useState(null);
 
-  // Add listing form state
+  // Add listing rich form state
   const [title, setTitle] = useState('');
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
+  const [size, setSize] = useState('1000');
+  const [propertyType, setPropertyType] = useState('Apartment');
+  const [furnishedStatus, setFurnishedStatus] = useState('Furnished');
   const [amenities, setAmenities] = useState('');
+  const [photos, setPhotos] = useState([]);
+  const [nearbyFacilities, setNearbyFacilities] = useState([]);
+  const [newFacilityName, setNewFacilityName] = useState('');
+  const [newFacilityCategory, setNewFacilityCategory] = useState('Schools');
+  const [newFacilityDistance, setNewFacilityDistance] = useState('500m');
+  const [coordinates, setCoordinates] = useState({ lat: 23.777176, lng: 90.399452 });
+  const [polygon, setPolygon] = useState([]);
+
+  const handleAddFacility = () => {
+    if (!newFacilityName.trim()) return;
+    setNearbyFacilities([
+      ...nearbyFacilities,
+      { name: newFacilityName.trim(), category: newFacilityCategory, distance: newFacilityDistance.trim() || 'Nearby' },
+    ]);
+    setNewFacilityName('');
+    setNewFacilityDistance('500m');
+  };
+
+  const handleRemoveFacility = (index) => {
+    setNearbyFacilities(nearbyFacilities.filter((_, i) => i !== index));
+  };
 
   const [toast, setToast] = useState(null);
 
@@ -113,7 +141,7 @@ export default function LandlordListings() {
 
   const activeUnreadBookings = tenantBookings.filter((b) => !readBookingIds.includes(b._id));
 
-  // ── Role Gate ─────────────────────────────────────────────────
+  // Role Gate
   if (user?.role !== 'landlord') {
     return (
       <div className="container">
@@ -131,7 +159,7 @@ export default function LandlordListings() {
     );
   }
 
-  // ── Pending Verification Screen ────────────────────────────────
+  // Pending Verification Screen
   if (isPendingVerification) {
     return (
       <div className="container">
@@ -168,17 +196,31 @@ export default function LandlordListings() {
         location,
         description,
         price: Number(price),
+        size: Number(size) || 1000,
+        propertyType,
+        furnishedStatus,
         amenities: amenitiesArray,
+        photos,
+        nearbyFacilities,
+        coordinates,
+        polygon,
       });
 
-      showToast('Property listing submitted for admin review!');
+      showToast('Property listing submitted with custom POIs & polygon boundary for admin review!');
       setIsAddModalOpen(false);
       // Reset form
       setTitle('');
       setLocation('');
       setDescription('');
       setPrice('');
+      setSize('1000');
+      setPropertyType('Apartment');
+      setFurnishedStatus('Furnished');
       setAmenities('');
+      setPhotos([]);
+      setNearbyFacilities([]);
+      setCoordinates({ lat: 23.777176, lng: 90.399452 });
+      setPolygon([]);
       fetchListings();
     } catch (err) {
       showToast(err.response?.data?.message || 'Failed to create listing', 'error');
@@ -202,7 +244,7 @@ export default function LandlordListings() {
       <div className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <div>
           <h1 className="page-title">Landlord Dashboard & Properties</h1>
-          <p className="page-subtitle">Manage rental listings, review tenant booking requests, and block calendar dates.</p>
+          <p className="page-subtitle">Manage property listings with polygon neighborhood tagging, photos, and calendar availability.</p>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
           <button
@@ -451,51 +493,9 @@ export default function LandlordListings() {
                         🔴 Rejected
                       </span>
                     )}
-
-                    {/* Landlord reviews tenant after approved booking */}
-                    {b.status === 'approved' && (
-                      <div style={{ marginTop: '0.75rem', width: '100%' }}>
-                        <ReviewSection
-                          mode="tenant"
-                          targetId={b.tenantId}
-                          listingId={b.listingId?.toString?.() || b.listingId}
-                          eligibleBooking={b}
-                          currentUser={user}
-                        />
-                      </div>
-                    )}
                   </div>
                 </div>
               ))}
-            </div>
-          )}
-
-          {/* SHOW DISMISSED HISTORY IF TOGGLED */}
-          {showHistory && readBookingIds.length > 0 && (
-            <div style={{ marginTop: '1.25rem', borderTop: '1px dashed rgba(255, 255, 255, 0.1)', paddingTop: '1rem' }}>
-              <h4 style={{ margin: '0 0 0.75rem 0', fontSize: '0.85rem', fontWeight: 600, color: '#94a3b8' }}>
-                Dismissed Requests ({readBookingIds.length})
-              </h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                {tenantBookings.filter((b) => readBookingIds.includes(b._id)).map((hb) => (
-                  <div
-                    key={hb._id}
-                    style={{
-                      padding: '0.6rem 0.85rem',
-                      borderRadius: '8px',
-                      background: 'rgba(255, 255, 255, 0.02)',
-                      border: '1px solid rgba(255, 255, 255, 0.05)',
-                      fontSize: '0.8rem',
-                      color: '#94a3b8',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                    }}
-                  >
-                    <span>{hb.listingTitle} — {hb.tenantName} ({hb.dates?.join(', ')})</span>
-                    <span style={{ fontWeight: 600 }}>{hb.status.toUpperCase()}</span>
-                  </div>
-                ))}
-              </div>
             </div>
           )}
         </div>
@@ -517,38 +517,92 @@ export default function LandlordListings() {
           <p className="empty-state-text">No properties found. Click "Add Property" to submit your first listing!</p>
         </div>
       ) : (
-        <div className="dashboard-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem', marginTop: '1rem' }}>
+        <div className="dashboard-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1.5rem', marginTop: '1rem' }}>
           {listings.map((listing) => (
-            <div key={listing._id} className="card" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-              <div className="card-header" style={{ borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem' }}>
-                <h3 className="card-title" style={{ fontSize: '1.15rem', fontWeight: '700', marginBottom: '0.25rem' }}>
-                  {listing.title}
-                </h3>
-                <p style={{ fontSize: '0.8rem', color: 'var(--t3)' }}>📍 {listing.location}</p>
-              </div>
-              <div className="card-body" style={{ flexGrow: 1, padding: '1rem 0' }}>
-                <p style={{ fontSize: '0.875rem', color: 'var(--t2)', marginBottom: '1rem', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                  {listing.description}
-                </p>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                  <span style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--purple)' }}>
-                    BDT {listing.price.toLocaleString()}/mo
+            <div key={listing._id} className="card" style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+              {/* Photo Header */}
+              {listing.photos && listing.photos.length > 0 && (
+                <div style={{ height: '160px', width: '100%', overflow: 'hidden', position: 'relative' }}>
+                  <img
+                    src={getImageUrl(listing.photos[0])}
+                    alt={listing.title}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = PLACEHOLDER_IMAGE;
+                    }}
+                  />
+                  <span
+                    style={{
+                      position: 'absolute',
+                      bottom: '8px',
+                      right: '8px',
+                      background: 'rgba(15, 23, 42, 0.75)',
+                      backdropFilter: 'blur(6px)',
+                      color: '#ffffff',
+                      fontSize: '0.72rem',
+                      padding: '0.2rem 0.5rem',
+                      borderRadius: '10px',
+                    }}
+                  >
+                    📸 {listing.photos.length} Photos
                   </span>
+                </div>
+              )}
+
+              <div className="card-header" style={{ borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem', paddingTop: '0.85rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <h3 className="card-title" style={{ fontSize: '1.15rem', fontWeight: '700', marginBottom: '0.25rem' }}>
+                    {listing.title}
+                  </h3>
                   <span className={`badge badge-${listing.status === 'approved' ? 'success' : listing.status === 'pending' ? 'warning' : 'danger'}`}>
                     {listing.status.toUpperCase()}
                   </span>
                 </div>
+                <p style={{ fontSize: '0.8rem', color: 'var(--t3)' }}>📍 {listing.location}</p>
+              </div>
+
+              <div className="card-body" style={{ flexGrow: 1, padding: '1rem 0' }}>
+                <div
+                  style={{ fontSize: '0.85rem', color: 'var(--t2)', marginBottom: '0.85rem' }}
+                  dangerouslySetInnerHTML={{ __html: listing.description }}
+                />
+
+                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '0.85rem' }}>
+                  <span style={{ fontSize: '0.74rem', background: 'rgba(139, 92, 246, 0.15)', color: '#c084fc', padding: '0.2rem 0.5rem', borderRadius: '10px' }}>
+                    🏠 {listing.propertyType || 'Apartment'}
+                  </span>
+                  <span style={{ fontSize: '0.74rem', background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', padding: '0.2rem 0.5rem', borderRadius: '10px' }}>
+                    🛋️ {listing.furnishedStatus || 'Furnished'}
+                  </span>
+                  <span style={{ fontSize: '0.74rem', background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', padding: '0.2rem 0.5rem', borderRadius: '10px' }}>
+                    📐 {listing.size || 1000} sqft
+                  </span>
+                  {listing.polygon && listing.polygon.length >= 3 && (
+                    <span style={{ fontSize: '0.74rem', background: 'rgba(236, 72, 153, 0.15)', color: '#f472b6', padding: '0.2rem 0.5rem', borderRadius: '10px' }}>
+                      📐 Polygon Boundary ({listing.polygon.length}pts)
+                    </span>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                  <span style={{ fontSize: '1.2rem', fontWeight: '800', color: 'var(--purple)' }}>
+                    BDT {listing.price?.toLocaleString()}/mo
+                  </span>
+                </div>
+
                 <div style={{ fontSize: '0.82rem', color: 'var(--t3)', borderTop: '1px dashed var(--border)', paddingTop: '0.75rem' }}>
                   📅 {listing.bookedDates ? listing.bookedDates.length : 0} Booked/Blocked dates
                 </div>
               </div>
+
               <div className="card-footer" style={{ marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
                 <button
                   className="btn btn-secondary w-full"
                   onClick={() => setActiveCalendarListing(listing)}
                   style={{ width: '100%' }}
                 >
-                  🗓 Manage Availability
+                  🗓 Manage Availability Calendar
                 </button>
               </div>
             </div>
@@ -559,66 +613,234 @@ export default function LandlordListings() {
       {/* Add Listing Modal */}
       {isAddModalOpen && (
         <Modal title="Add New Property Listing" onClose={() => setIsAddModalOpen(false)}>
-          <form onSubmit={handleAddListing} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '1rem' }}>
-            <div className="form-group">
-              <label className="form-label">Property Title *</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="e.g. Modern Studio in Dhanmondi"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                required
-              />
+          <form onSubmit={handleAddListing} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '1rem', maxHeight: '80vh', overflowY: 'auto' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <div className="form-group">
+                <label className="form-label">Property Title *</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g. Luxury 3BR Apartment in Dhanmondi"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Location / Area Address *</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g. Dhanmondi Road 27, Dhaka"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  required
+                />
+              </div>
             </div>
-            <div className="form-group">
-              <label className="form-label">Location / Address *</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="e.g. Dhanmondi, Dhaka"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                required
-              />
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '0.75rem' }}>
+              <div className="form-group">
+                <label className="form-label">Rent (BDT/mo) *</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  placeholder="e.g. 35000"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Size (sqft)</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  placeholder="1200"
+                  value={size}
+                  onChange={(e) => setSize(e.target.value)}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Property Type</label>
+                <select
+                  className="form-input"
+                  value={propertyType}
+                  onChange={(e) => setPropertyType(e.target.value)}
+                >
+                  <option value="Apartment">Apartment</option>
+                  <option value="House">House</option>
+                  <option value="Sublet">Sublet</option>
+                  <option value="Studio">Studio</option>
+                  <option value="Villa">Villa</option>
+                  <option value="Commercial">Commercial</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Furnished Status</label>
+                <select
+                  className="form-input"
+                  value={furnishedStatus}
+                  onChange={(e) => setFurnishedStatus(e.target.value)}
+                >
+                  <option value="Furnished">Furnished</option>
+                  <option value="Unfurnished">Unfurnished</option>
+                  <option value="Semi-Furnished">Semi-Furnished</option>
+                </select>
+              </div>
             </div>
-            <div className="form-group">
-              <label className="form-label">Monthly Rent (BDT) *</label>
-              <input
-                type="number"
-                className="form-input"
-                placeholder="e.g. 25000"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                required
-              />
-            </div>
+
             <div className="form-group">
               <label className="form-label">Amenities (Comma separated)</label>
               <input
                 type="text"
                 className="form-input"
-                placeholder="WiFi, Generator, AC, Security"
+                placeholder="WiFi, Generator, Elevator, 24/7 Security, Balcony"
                 value={amenities}
                 onChange={(e) => setAmenities(e.target.value)}
               />
             </div>
+
+            {/* Rich Text Description */}
             <div className="form-group">
-              <label className="form-label">Description *</label>
-              <textarea
-                className="form-textarea"
-                placeholder="Describe your property in detail..."
+              <label className="form-label">Rich Text Property Description *</label>
+              <RichTextEditor
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                required
+                onChange={setDescription}
+                placeholder="Write a detailed description including rooms, features, nearby places..."
               />
             </div>
+
+            {/* Multi-Image Upload */}
+            <ImageUpload photos={photos} onChange={setPhotos} />
+
+            {/* Manual Nearby Schools, Hospitals & POI Entry */}
+            <div
+              style={{
+                border: '1px solid rgba(16, 185, 129, 0.3)',
+                borderRadius: '12px',
+                padding: '1.25rem',
+                background: 'rgba(16, 185, 129, 0.04)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.75rem',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label className="form-label" style={{ margin: 0, fontWeight: 700, color: '#f8fafc' }}>
+                  🏫 Nearby Schools, Hospitals & Facilities (Manual Entry)
+                </label>
+                <span style={{ fontSize: '0.78rem', color: '#34d399' }}>
+                  {nearbyFacilities.length} Added
+                </span>
+              </div>
+              <p style={{ margin: 0, fontSize: '0.8rem', color: '#94a3b8' }}>
+                Manually specify key nearby institutions like schools, colleges, hospitals, transit points or shopping centers.
+              </p>
+
+              {/* Add Input Controls */}
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: '0.5rem', alignItems: 'center' }}>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Facility Name (e.g. Scholastica School, Square Hospital)"
+                  value={newFacilityName}
+                  onChange={(e) => setNewFacilityName(e.target.value)}
+                  style={{ fontSize: '0.85rem' }}
+                />
+                <select
+                  className="form-input"
+                  value={newFacilityCategory}
+                  onChange={(e) => setNewFacilityCategory(e.target.value)}
+                  style={{ fontSize: '0.85rem' }}
+                >
+                  <option value="Schools">🏫 Schools</option>
+                  <option value="Hospitals">🏥 Hospitals</option>
+                  <option value="Transport">🚆 Transport</option>
+                  <option value="Shopping">🛍️ Shopping</option>
+                  <option value="Other">📍 Other</option>
+                </select>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Distance (e.g. 500m)"
+                  value={newFacilityDistance}
+                  onChange={(e) => setNewFacilityDistance(e.target.value)}
+                  style={{ fontSize: '0.85rem' }}
+                />
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={handleAddFacility}
+                  style={{ fontSize: '0.82rem', padding: '0.5rem 0.85rem', whiteSpace: 'nowrap' }}
+                >
+                  ➕ Add
+                </button>
+              </div>
+
+              {/* Added Facilities Badges List */}
+              {nearbyFacilities.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.25rem' }}>
+                  {nearbyFacilities.map((fac, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                        background: 'rgba(15, 23, 42, 0.7)',
+                        border: '1px solid rgba(16, 185, 129, 0.3)',
+                        padding: '0.25rem 0.6rem',
+                        borderRadius: '20px',
+                        fontSize: '0.8rem',
+                        color: '#f8fafc',
+                      }}
+                    >
+                      <span>
+                        {fac.category === 'Schools' ? '🏫' : fac.category === 'Hospitals' ? '🏥' : fac.category === 'Transport' ? '🚆' : fac.category === 'Shopping' ? '🛍️' : '📍'}{' '}
+                        <strong>{fac.name}</strong> ({fac.distance})
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveFacility(idx)}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: '#f87171',
+                          cursor: 'pointer',
+                          fontWeight: 'bold',
+                          fontSize: '0.85rem',
+                          padding: '0 0.2rem',
+                        }}
+                        title="Remove facility"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Polygon Map & Neighborhood Boundary Tagging */}
+            <PolygonMap
+              coordinates={coordinates}
+              polygon={polygon}
+              onCoordinatesChange={setCoordinates}
+              onPolygonChange={setPolygon}
+              title="📍 Pin Property Location & Draw Custom Neighborhood Polygon Boundary"
+            />
+
             <div className="form-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
               <button type="button" className="btn btn-secondary" onClick={() => setIsAddModalOpen(false)}>
                 Cancel
               </button>
               <button type="submit" className="btn btn-primary">
-                Submit Listing
+                🚀 Submit Property Listing
               </button>
             </div>
           </form>
