@@ -10,6 +10,7 @@ import ReviewSection from '../components/ReviewSection';
 import RichTextEditor from '../components/RichTextEditor';
 import ImageUpload from '../components/ImageUpload';
 import PolygonMap from '../components/PolygonMap';
+import VirtualTourViewer from '../components/VirtualTourViewer';
 import { getImageUrl, PLACEHOLDER_IMAGE } from '../utils/imageUtils';
 
 export default function LandlordListings() {
@@ -36,6 +37,8 @@ export default function LandlordListings() {
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [activeCalendarListing, setActiveCalendarListing] = useState(null);
+  const [tourModalListing, setTourModalListing] = useState(null);
+  const [reviewingBooking, setReviewingBooking] = useState(null); // Approved booking being reviewed
 
   // Add listing rich form state
   const [title, setTitle] = useState('');
@@ -45,6 +48,8 @@ export default function LandlordListings() {
   const [size, setSize] = useState('1000');
   const [propertyType, setPropertyType] = useState('Apartment');
   const [furnishedStatus, setFurnishedStatus] = useState('Furnished');
+  const [virtualTourUrl, setVirtualTourUrl] = useState('');
+  const [virtualTourType, setVirtualTourType] = useState('youtube');
   const [amenities, setAmenities] = useState('');
   const [photos, setPhotos] = useState([]);
   const [nearbyFacilities, setNearbyFacilities] = useState([]);
@@ -230,6 +235,8 @@ export default function LandlordListings() {
         nearbyFacilities,
         coordinates,
         polygon,
+        virtualTourUrl: virtualTourUrl.trim(),
+        virtualTourType,
       });
 
       showToast('Property listing submitted with custom POIs & polygon boundary for admin review!');
@@ -242,6 +249,8 @@ export default function LandlordListings() {
       setSize('1000');
       setPropertyType('Apartment');
       setFurnishedStatus('Furnished');
+      setVirtualTourUrl('');
+      setVirtualTourType('youtube');
       setAmenities('');
       setPhotos([]);
       setNearbyFacilities([]);
@@ -504,19 +513,41 @@ export default function LandlordListings() {
                     )}
 
                     {b.status === 'approved' && (
-                      <span
-                        style={{
-                          background: 'rgba(16, 185, 129, 0.15)',
-                          color: '#34d399',
-                          border: '1px solid rgba(16, 185, 129, 0.3)',
-                          padding: '0.4rem 0.8rem',
-                          borderRadius: '20px',
-                          fontSize: '0.82rem',
-                          fontWeight: '700',
-                        }}
-                      >
-                        🟢 ✅ Admin Approved Booking! Dates Reserved
-                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                        <span
+                          style={{
+                            background: 'rgba(16, 185, 129, 0.15)',
+                            color: '#34d399',
+                            border: '1px solid rgba(16, 185, 129, 0.3)',
+                            padding: '0.4rem 0.8rem',
+                            borderRadius: '20px',
+                            fontSize: '0.82rem',
+                            fontWeight: '700',
+                          }}
+                        >
+                          🟢 ✅ Admin Approved Booking! Dates Reserved
+                        </span>
+                        <button
+                          className="btn btn-sm"
+                          style={{
+                            background: 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)',
+                            color: '#ffffff',
+                            fontWeight: '700',
+                            border: 'none',
+                            padding: '0.42rem 0.85rem',
+                            borderRadius: '16px',
+                            fontSize: '0.8rem',
+                            boxShadow: '0 2px 8px rgba(139, 92, 246, 0.35)',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                          onClick={() => setReviewingBooking(reviewingBooking?._id === b._id ? null : b)}
+                        >
+                          ⭐ {reviewingBooking?._id === b._id ? 'Close Review' : 'Review Tenant'}
+                        </button>
+                      </div>
                     )}
 
                     {b.status === 'rejected' && (
@@ -535,6 +566,28 @@ export default function LandlordListings() {
                       </span>
                     )}
                   </div>
+
+                  {/* Expandable Tenant Review Form / Section */}
+                  {reviewingBooking?._id === b._id && (
+                    <div
+                      style={{
+                        width: '100%',
+                        marginTop: '0.75rem',
+                        padding: '1rem',
+                        borderRadius: '12px',
+                        background: 'rgba(15, 23, 42, 0.65)',
+                        border: '1px solid rgba(139, 92, 246, 0.3)',
+                      }}
+                    >
+                      <ReviewSection
+                        mode="tenant"
+                        targetId={b.tenantId}
+                        listingId={b.listingId}
+                        eligibleBooking={b}
+                        currentUser={user}
+                      />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -822,7 +875,32 @@ export default function LandlordListings() {
                 </div>
               </div>
 
-              <div className="card-footer" style={{ marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
+              <div className="card-footer" style={{ marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {listing.virtualTourUrl && (
+                  <button
+                    type="button"
+                    className="btn"
+                    style={{
+                      width: '100%',
+                      background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+                      color: '#ffffff',
+                      fontWeight: '700',
+                      border: 'none',
+                      padding: '0.5rem',
+                      borderRadius: '8px',
+                      boxShadow: '0 2px 8px rgba(99, 102, 241, 0.35)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.45rem',
+                      cursor: 'pointer',
+                      fontSize: '0.8rem',
+                    }}
+                    onClick={() => setTourModalListing(listing)}
+                  >
+                    🎬 {listing.virtualTourType === 'image360' ? '🔄 Preview 360° Panorama Tour' : listing.virtualTourType === 'iframe' ? '🌐 Preview 3D Virtual Tour' : '📺 Watch Video Walkthrough'}
+                  </button>
+                )}
                 <button
                   className="btn btn-secondary w-full"
                   onClick={() => setActiveCalendarListing(listing)}
@@ -965,6 +1043,49 @@ export default function LandlordListings() {
 
             {/* Multi-Image Upload */}
             <ImageUpload photos={photos} onChange={setPhotos} />
+
+            {/* Virtual Tour Walkthrough Configuration */}
+            <div
+              style={{
+                border: '1px solid rgba(99, 102, 241, 0.3)',
+                borderRadius: '12px',
+                padding: '1.25rem',
+                background: 'rgba(99, 102, 241, 0.05)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.75rem',
+              }}
+            >
+              <label className="form-label" style={{ margin: 0, fontWeight: 700, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                🎬 Virtual Tour Walkthrough (Optional)
+              </label>
+              <p style={{ margin: 0, fontSize: '0.8rem', color: '#94a3b8' }}>
+                Provide a YouTube walkthrough video link, interactive 360° panorama image URL, or 3D iframe (e.g., Matterport / Kuula).
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <input
+                    type="url"
+                    className="form-input"
+                    placeholder="https://www.youtube.com/watch?v=... or https://..."
+                    value={virtualTourUrl}
+                    onChange={(e) => setVirtualTourUrl(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <select
+                    className="form-input"
+                    style={{ backgroundColor: '#0f172a', color: '#f8fafc' }}
+                    value={virtualTourType}
+                    onChange={(e) => setVirtualTourType(e.target.value)}
+                  >
+                    <option value="youtube">📺 YouTube Video</option>
+                    <option value="image360">🔄 360° Panorama Image</option>
+                    <option value="iframe">🌐 3D Tour / iFrame</option>
+                  </select>
+                </div>
+              </div>
+            </div>
 
             {/* Manual Nearby Schools, Hospitals & POI Entry */}
             <div
@@ -1109,6 +1230,17 @@ export default function LandlordListings() {
             />
           </div>
         </Modal>
+      )}
+
+      {/* Virtual Tour Viewer Modal */}
+      {tourModalListing && (
+        <VirtualTourViewer
+          isOpen={Boolean(tourModalListing)}
+          onClose={() => setTourModalListing(null)}
+          tourUrl={tourModalListing.virtualTourUrl}
+          tourType={tourModalListing.virtualTourType}
+          title={`${tourModalListing.title} — Virtual Tour`}
+        />
       )}
 
       {/* Toasts */}
