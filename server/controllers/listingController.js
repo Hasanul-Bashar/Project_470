@@ -7,6 +7,7 @@ const {
   getGridKey,
   getNeighborGridKeys,
   calculateWeightedScore,
+  resolveLocationCoordinates,
 } = require('../utils/spatialUtils');
 
 // Fetch listings (standard role-filtered)
@@ -25,8 +26,16 @@ exports.getListings = async (req, res) => {
       filter = { landlordId: req.user.id };
     }
 
-    const listings = await Listing.find(filter).sort({ createdAt: -1 });
-    return res.json(listings);
+    const listings = await Listing.find(filter).sort({ createdAt: -1 }).lean();
+    const resolvedListings = listings.map((l) => {
+      const resolved = resolveLocationCoordinates(l.location, l.title, l.coordinates, l.polygon);
+      return {
+        ...l,
+        coordinates: resolved.coordinates,
+        polygon: resolved.polygon,
+      };
+    });
+    return res.json(resolvedListings);
   } catch (err) {
     console.error('❌ Get Listings Error:', err);
     return res.status(500).json({ message: 'Server error fetching listings' });
@@ -59,8 +68,10 @@ exports.createListing = async (req, res) => {
       polygon,
     } = req.body;
 
-    const lat = coordinates?.lat != null ? Number(coordinates.lat) : 23.777176;
-    const lng = coordinates?.lng != null ? Number(coordinates.lng) : 90.399452;
+    const resolved = resolveLocationCoordinates(location, title, coordinates, polygon);
+    const lat = resolved.coordinates.lat;
+    const lng = resolved.coordinates.lng;
+    const finalPolygon = resolved.polygon;
 
     // Spatial Indexing (Geohash & Grid key)
     const geohash = encodeGeohash(lat, lng, 5);
@@ -78,7 +89,7 @@ exports.createListing = async (req, res) => {
       photos: photos || [],
       nearbyFacilities: Array.isArray(nearbyFacilities) ? nearbyFacilities : [],
       coordinates: { lat, lng },
-      polygon: Array.isArray(polygon) ? polygon : [],
+      polygon: Array.isArray(finalPolygon) ? finalPolygon : [],
       geohash,
       gridKey,
       status: 'pending',
@@ -145,10 +156,18 @@ exports.searchListings = async (req, res) => {
 
     // Property type & furnished status
     if (propertyType && propertyType !== 'All') {
-      dbFilter.propertyType = propertyType;
+      if (propertyType === 'Studio Apartment' || propertyType === 'Studio') {
+        dbFilter.propertyType = { $in: ['Studio', 'Studio Apartment'] };
+      } else {
+        dbFilter.propertyType = propertyType;
+      }
     }
     if (furnishedStatus && furnishedStatus !== 'All') {
-      dbFilter.furnishedStatus = furnishedStatus;
+      if (furnishedStatus === 'Unfurnished' || furnishedStatus === 'Not Furnished') {
+        dbFilter.furnishedStatus = { $in: ['Unfurnished', 'Not Furnished'] };
+      } else {
+        dbFilter.furnishedStatus = furnishedStatus;
+      }
     }
 
     // Spatial Indexing Optimization: If radius search active, filter by neighboring grid buckets first
@@ -177,8 +196,12 @@ exports.searchListings = async (req, res) => {
 
     const processedListings = listings
       .map((listing) => {
-        const listingLat = listing.coordinates?.lat || 23.777176;
-        const listingLng = listing.coordinates?.lng || 90.399452;
+        const resolved = resolveLocationCoordinates(listing.location, listing.title, listing.coordinates, listing.polygon);
+        listing.coordinates = resolved.coordinates;
+        listing.polygon = resolved.polygon;
+
+        const listingLat = listing.coordinates.lat;
+        const listingLng = listing.coordinates.lng;
 
         // 1. Haversine distance
         let distKm = null;
@@ -265,11 +288,7 @@ exports.searchListings = async (req, res) => {
 exports.updateAvailability = async (req, res) => {
   try {
     const { id } = req.params;
-    const { bookedDates } = req.body;
-
-    if (!Array.isArray(bookedDates)) {
-      return res.status(400).json({ message: 'bookedDates must be an array of date strings' });
-    }
+    const { bookedDates, isAvailable } = req.body;
 
     const listing = await Listing.findById(id);
     if (!listing) {
@@ -280,13 +299,20 @@ exports.updateAvailability = async (req, res) => {
       return res.status(403).json({ message: 'Unauthorized to modify availability for this property' });
     }
 
-    listing.bookedDates = bookedDates;
+    if (Array.isArray(bookedDates)) {
+      listing.bookedDates = bookedDates;
+    }
+    if (typeof isAvailable === 'boolean') {
+      listing.isAvailable = isAvailable;
+    }
+
     await listing.save();
 
     return res.json({
       success: true,
       message: 'Availability calendar updated successfully',
       bookedDates: listing.bookedDates,
+      isAvailable: listing.isAvailable,
     });
   } catch (err) {
     console.error('❌ Update Availability Error:', err);

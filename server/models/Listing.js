@@ -21,13 +21,17 @@ const ListingSchema = new mongoose.Schema(
     
     propertyType: {
       type: String,
-      enum: ['Apartment', 'House', 'Sublet', 'Studio', 'Villa', 'Commercial'],
+      enum: ['Apartment', 'House', 'Sublet', 'Studio Apartment', 'Studio', 'Duplex', 'Villa', 'Commercial', 'Office', 'Room'],
       default: 'Apartment',
     },
     furnishedStatus: {
       type: String,
-      enum: ['Furnished', 'Unfurnished', 'Semi-Furnished'],
+      enum: ['Furnished', 'Unfurnished', 'Not Furnished', 'Semi-Furnished'],
       default: 'Furnished',
+    },
+    isAvailable: {
+      type: Boolean,
+      default: true,
     },
 
     // Geospatial Coordinates & Neighborhood Polygon Area Tagging

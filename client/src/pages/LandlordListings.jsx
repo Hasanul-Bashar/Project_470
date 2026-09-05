@@ -634,7 +634,24 @@ export default function LandlordListings() {
                   className="form-input"
                   placeholder="e.g. Dhanmondi Road 27, Dhaka"
                   value={location}
-                  onChange={(e) => setLocation(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setLocation(val);
+                    const lower = val.toLowerCase();
+                    const presets = [
+                      { keywords: ['dhanmondi'], lat: 23.7542, lng: 90.3769, polygon: [{ lat: 23.752, lng: 90.374 }, { lat: 23.756, lng: 90.374 }, { lat: 23.756, lng: 90.378 }, { lat: 23.752, lng: 90.378 }] },
+                      { keywords: ['gulshan'], lat: 23.7925, lng: 90.4078, polygon: [{ lat: 23.791, lng: 90.406 }, { lat: 23.794, lng: 90.406 }, { lat: 23.794, lng: 90.409 }, { lat: 23.791, lng: 90.409 }] },
+                      { keywords: ['banani'], lat: 23.7937, lng: 90.4066, polygon: [{ lat: 23.792, lng: 90.404 }, { lat: 23.795, lng: 90.404 }, { lat: 23.795, lng: 90.408 }, { lat: 23.792, lng: 90.408 }] },
+                      { keywords: ['uttara'], lat: 23.8724, lng: 90.3984, polygon: [{ lat: 23.870, lng: 90.396 }, { lat: 23.875, lng: 90.396 }, { lat: 23.875, lng: 90.400 }, { lat: 23.870, lng: 90.400 }] },
+                      { keywords: ['mirpur'], lat: 23.8069, lng: 90.3687, polygon: [{ lat: 23.804, lng: 90.366 }, { lat: 23.809, lng: 90.366 }, { lat: 23.809, lng: 90.371 }, { lat: 23.804, lng: 90.371 }] },
+                      { keywords: ['bashundhara'], lat: 23.8151, lng: 90.4255, polygon: [{ lat: 23.813, lng: 90.423 }, { lat: 23.818, lng: 90.423 }, { lat: 23.818, lng: 90.428 }, { lat: 23.813, lng: 90.428 }] },
+                    ];
+                    const match = presets.find((p) => p.keywords.some((kw) => lower.includes(kw)));
+                    if (match) {
+                      setCoordinates({ lat: match.lat, lng: match.lng });
+                      setPolygon(match.polygon);
+                    }
+                  }}
                   required
                 />
               </div>
@@ -668,15 +685,19 @@ export default function LandlordListings() {
                 <label className="form-label">Property Type</label>
                 <select
                   className="form-input"
+                  style={{ backgroundColor: '#0f172a', color: '#f8fafc' }}
                   value={propertyType}
                   onChange={(e) => setPropertyType(e.target.value)}
                 >
                   <option value="Apartment">Apartment</option>
                   <option value="House">House</option>
                   <option value="Sublet">Sublet</option>
-                  <option value="Studio">Studio</option>
+                  <option value="Studio Apartment">Studio Apartment</option>
+                  <option value="Duplex">Duplex</option>
                   <option value="Villa">Villa</option>
                   <option value="Commercial">Commercial</option>
+                  <option value="Office">Office</option>
+                  <option value="Room">Room Single/Shared</option>
                 </select>
               </div>
 
@@ -684,11 +705,12 @@ export default function LandlordListings() {
                 <label className="form-label">Furnished Status</label>
                 <select
                   className="form-input"
+                  style={{ backgroundColor: '#0f172a', color: '#f8fafc' }}
                   value={furnishedStatus}
                   onChange={(e) => setFurnishedStatus(e.target.value)}
                 >
                   <option value="Furnished">Furnished</option>
-                  <option value="Unfurnished">Unfurnished</option>
+                  <option value="Unfurnished">Unfurnished / Not Furnished</option>
                   <option value="Semi-Furnished">Semi-Furnished</option>
                 </select>
               </div>

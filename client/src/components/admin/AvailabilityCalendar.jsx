@@ -1,14 +1,24 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 /**
  * AvailabilityCalendar
  * ────────────────────
- * A custom visual grid calendar for the current and selected months.
- * Landlords can click individual dates to toggle them between Available and Booked.
+ * A visual grid calendar for property availability.
+ * If readOnly is true (for tenants), dates are display-only and cannot be clicked or modified.
+ * Only landlords (readOnly = false) can select dates and save changes.
  */
-export default function AvailabilityCalendar({ initialBookedDates, onSave, onCancel }) {
+export default function AvailabilityCalendar({
+  initialBookedDates = [],
+  onSave,
+  onCancel,
+  readOnly = false,
+}) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [bookedDates, setBookedDates] = useState(new Set(initialBookedDates || []));
+
+  useEffect(() => {
+    setBookedDates(new Set(initialBookedDates || []));
+  }, [initialBookedDates]);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -24,8 +34,10 @@ export default function AvailabilityCalendar({ initialBookedDates, onSave, onCan
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const startDay = new Date(year, month, 1).getDay();
 
-  // Toggle booking status of a day
+  // Toggle booking status of a day (Only permitted for Landlords)
   const handleDateClick = (day) => {
+    if (readOnly) return; // Strict gate: tenants cannot select/toggle dates
+
     const dateStr = formatDateStr(year, month, day);
     const updated = new Set(bookedDates);
     if (updated.has(dateStr)) {
@@ -45,7 +57,8 @@ export default function AvailabilityCalendar({ initialBookedDates, onSave, onCan
   };
 
   const handleSave = () => {
-    onSave(Array.from(bookedDates));
+    if (readOnly) return;
+    if (onSave) onSave(Array.from(bookedDates));
   };
 
   const monthNames = [
@@ -61,18 +74,32 @@ export default function AvailabilityCalendar({ initialBookedDates, onSave, onCan
   for (let i = 0; i < startDay; i++) {
     cells.push(<div key={`empty-${i}`} className="calendar-day empty" />);
   }
+
   // Days of the month
   for (let day = 1; day <= daysInMonth; day++) {
     const dateStr = formatDateStr(year, month, day);
     const isBooked = bookedDates.has(dateStr);
-    
+
     cells.push(
       <button
         key={`day-${day}`}
         type="button"
+        disabled={readOnly}
         onClick={() => handleDateClick(day)}
         className={`calendar-day-btn ${isBooked ? 'booked' : 'available'}`}
-        title={isBooked ? 'Booked - Click to make available' : 'Available - Click to mark booked'}
+        style={{
+          cursor: readOnly ? 'default' : 'pointer',
+          opacity: readOnly && isBooked ? 0.85 : 1,
+        }}
+        title={
+          readOnly
+            ? isBooked
+              ? 'Booked / Unavailable'
+              : 'Available Date'
+            : isBooked
+            ? 'Booked - Click to make available'
+            : 'Available - Click to mark booked'
+        }
       >
         <span className="day-number">{day}</span>
         <span className="status-indicator"></span>
@@ -89,7 +116,7 @@ export default function AvailabilityCalendar({ initialBookedDates, onSave, onCan
       </div>
 
       <div className="calendar-weekdays">
-        {weekdayNames.map(name => (
+        {weekdayNames.map((name) => (
           <div key={name} className="weekday-header">{name}</div>
         ))}
       </div>
@@ -101,7 +128,7 @@ export default function AvailabilityCalendar({ initialBookedDates, onSave, onCan
       <div className="calendar-legend">
         <div className="legend-item">
           <span className="legend-dot available"></span>
-          <span>Available</span>
+          <span>Available for Rental</span>
         </div>
         <div className="legend-item">
           <span className="legend-dot booked"></span>
@@ -109,14 +136,22 @@ export default function AvailabilityCalendar({ initialBookedDates, onSave, onCan
         </div>
       </div>
 
-      <div className="calendar-actions">
-        <button type="button" className="btn btn-secondary" onClick={onCancel}>
-          Cancel
-        </button>
-        <button type="button" className="btn btn-primary" onClick={handleSave}>
-          Save Availability
-        </button>
-      </div>
+      {readOnly ? (
+        <div className="calendar-actions" style={{ justifyContent: 'center' }}>
+          <button type="button" className="btn btn-secondary" onClick={onCancel}>
+            Close Calendar View
+          </button>
+        </div>
+      ) : (
+        <div className="calendar-actions">
+          <button type="button" className="btn btn-secondary" onClick={onCancel}>
+            Cancel
+          </button>
+          <button type="button" className="btn btn-primary" onClick={handleSave}>
+            💾 Save Availability
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,8 +1,32 @@
 import { useState, useEffect, useRef } from 'react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
 /**
- * Interactive Geospatial Map with Polygon Area Tagging & Geofencing Boundary Control.
- * Supports interactive coordinate selection, polygon drawing, and vertex editing.
+ * Custom Red Map Pin Icon using Leaflet DivIcon
+ */
+const createPinIcon = () =>
+  L.divIcon({
+    className: 'custom-map-pin',
+    html: `<div style="
+      background: #ef4444;
+      width: 26px;
+      height: 26px;
+      border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg);
+      border: 2px solid #ffffff;
+      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    "><div style="width: 8px; height: 8px; background: white; border-radius: 50%;"></div></div>`,
+    iconSize: [26, 26],
+    iconAnchor: [13, 26],
+  });
+
+/**
+ * Real Geospatial Interactive Map using OpenStreetMap tiles & Leaflet.
+ * Displays interactive maps, property pins, and neighborhood polygon boundaries.
  */
 export default function PolygonMap({
   coordinates = { lat: 23.777176, lng: 90.399452 },
@@ -14,51 +38,119 @@ export default function PolygonMap({
   title = 'Property Location & Neighborhood Polygon Boundary',
   interactiveMode = 'both', // 'coordinates' | 'polygon' | 'both'
 }) {
-  const [activeTab, setActiveTab] = useState('map');
   const [latInput, setLatInput] = useState(coordinates?.lat || 23.777176);
   const [lngInput, setLngInput] = useState(coordinates?.lng || 90.399452);
   const [polyPoints, setPolyPoints] = useState(polygon || []);
-  const canvasRef = useRef(null);
+
+  const mapContainerRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const layerGroupRef = useRef(null);
 
   useEffect(() => {
-    setLatInput(coordinates?.lat || 23.777176);
-    setLngInput(coordinates?.lng || 90.399452);
+    const lat = coordinates?.lat || 23.777176;
+    const lng = coordinates?.lng || 90.399452;
+    setLatInput(lat);
+    setLngInput(lng);
   }, [coordinates?.lat, coordinates?.lng]);
 
   useEffect(() => {
     setPolyPoints(polygon || []);
   }, [polygon]);
 
-  // Handle canvas click to add polygon vertices or update pin location
-  const handleCanvasClick = (e) => {
-    if (readOnly) return;
+  // Initialize Leaflet Map Instance
+  useEffect(() => {
+    if (!mapContainerRef.current) return;
 
-    const rect = canvasRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    if (!mapInstanceRef.current) {
+      const map = L.map(mapContainerRef.current, {
+        center: [latInput, lngInput],
+        zoom: 14,
+        zoomControl: true,
+      });
 
-    // Convert pixel click coordinates to relative lat/lng offsets around center
-    const centerLat = parseFloat(latInput);
-    const centerLng = parseFloat(lngInput);
-    
-    // Scale factor: width ~ 0.02 deg lng, height ~ 0.02 deg lat
-    const deltaLng = ((x / rect.width) - 0.5) * 0.03;
-    const deltaLat = (0.5 - (y / rect.height)) * 0.03;
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      }).addTo(map);
 
-    const clickedLat = Math.round((centerLat + deltaLat) * 1e6) / 1e6;
-    const clickedLng = Math.round((centerLng + deltaLng) * 1e6) / 1e6;
+      const layerGroup = L.layerGroup().addTo(map);
+      layerGroupRef.current = layerGroup;
+      mapInstanceRef.current = map;
 
-    if (interactiveMode === 'coordinates') {
-      setLatInput(clickedLat);
-      setLngInput(clickedLng);
-      if (onCoordinatesChange) onCoordinatesChange({ lat: clickedLat, lng: clickedLng });
-    } else {
-      // Add vertex to polygon boundary
-      const updated = [...polyPoints, { lat: clickedLat, lng: clickedLng }];
-      setPolyPoints(updated);
-      if (onPolygonChange) onPolygonChange(updated);
+      // Handle map click events
+      map.on('click', (e) => {
+        if (readOnly) return;
+        const clickedLat = Math.round(e.latlng.lat * 1e6) / 1e6;
+        const clickedLng = Math.round(e.latlng.lng * 1e6) / 1e6;
+
+        if (interactiveMode === 'coordinates') {
+          setLatInput(clickedLat);
+          setLngInput(clickedLng);
+          if (onCoordinatesChange) onCoordinatesChange({ lat: clickedLat, lng: clickedLng });
+        } else {
+          setPolyPoints((prev) => {
+            const updated = [...prev, { lat: clickedLat, lng: clickedLng }];
+            if (onPolygonChange) onPolygonChange(updated);
+            return updated;
+          });
+        }
+      });
     }
-  };
+
+    const timer = setTimeout(() => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.invalidateSize();
+      }
+    }, 250);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, []);
+
+  // Update map view & layers on state changes
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    const layerGroup = layerGroupRef.current;
+    if (!map || !layerGroup) return;
+
+    map.setView([latInput, lngInput]);
+    layerGroup.clearLayers();
+
+    // 1. Property Pin Marker
+    const pinMarker = L.marker([latInput, lngInput], { icon: createPinIcon() });
+    pinMarker.bindTooltip('📍 Property Location', { permanent: false, direction: 'top' });
+    layerGroup.addLayer(pinMarker);
+
+    // 2. Neighborhood Polygon Boundary
+    if (polyPoints.length > 0) {
+      const polygonCoords = polyPoints.map((pt) => [pt.lat, pt.lng]);
+      if (polyPoints.length >= 3) {
+        const polyLayer = L.polygon(polygonCoords, {
+          color: '#c084fc',
+          weight: 3,
+          fillColor: '#8b5cf6',
+          fillOpacity: 0.35,
+        });
+        layerGroup.addLayer(polyLayer);
+      } else if (polyPoints.length === 2) {
+        const polylineLayer = L.polyline(polygonCoords, { color: '#c084fc', weight: 3 });
+        layerGroup.addLayer(polylineLayer);
+      }
+
+      polyPoints.forEach((pt, index) => {
+        const circle = L.circleMarker([pt.lat, pt.lng], {
+          radius: 6,
+          color: '#ffffff',
+          weight: 2,
+          fillColor: '#a855f7',
+          fillOpacity: 1,
+        });
+        circle.bindTooltip(`Vertex P${index + 1}`);
+        layerGroup.addLayer(circle);
+      });
+    }
+  }, [latInput, lngInput, polyPoints]);
 
   const clearPolygon = () => {
     setPolyPoints([]);
@@ -72,105 +164,6 @@ export default function PolygonMap({
     setLngInput(lngNum);
     if (onCoordinatesChange) onCoordinatesChange({ lat: latNum, lng: lngNum });
   };
-
-  // Render Canvas Map Grid + Polygon Overlay
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const width = canvas.width;
-    const height = canvas.height;
-
-    // Clear background grid
-    ctx.fillStyle = '#0f172a';
-    ctx.fillRect(0, 0, width, height);
-
-    // Draw map grid lines
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
-    ctx.lineWidth = 1;
-    for (let x = 0; x < width; x += 30) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, height);
-      ctx.stroke();
-    }
-    for (let y = 0; y < height; y += 30) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(width, y);
-      ctx.stroke();
-    }
-
-    // Helper: Map lat/lng to canvas pixel
-    const centerLat = parseFloat(latInput);
-    const centerLng = parseFloat(lngInput);
-
-    const toPixel = (pt) => {
-      const dLng = pt.lng - centerLng;
-      const dLat = pt.lat - centerLat;
-      const px = width / 2 + (dLng / 0.03) * width;
-      const py = height / 2 - (dLat / 0.03) * height;
-      return { x: px, y: py };
-    };
-
-    // Draw Polygon Area if present
-    if (polyPoints.length > 0) {
-      ctx.beginPath();
-      const firstPx = toPixel(polyPoints[0]);
-      ctx.moveTo(firstPx.x, firstPx.y);
-
-      for (let i = 1; i < polyPoints.length; i++) {
-        const p = toPixel(polyPoints[i]);
-        ctx.lineTo(p.x, p.y);
-      }
-
-      if (polyPoints.length >= 3) {
-        ctx.closePath();
-        ctx.fillStyle = 'rgba(139, 92, 246, 0.25)';
-        ctx.fill();
-      }
-
-      ctx.strokeStyle = '#c084fc';
-      ctx.lineWidth = 2.5;
-      ctx.stroke();
-
-      // Draw Polygon Vertices
-      polyPoints.forEach((pt, index) => {
-        const p = toPixel(pt);
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
-        ctx.fillStyle = '#a855f7';
-        ctx.fill();
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-
-        ctx.fillStyle = '#ffffff';
-        ctx.font = '10px sans-serif';
-        ctx.fillText(`P${index + 1}`, p.x + 8, p.y + 3);
-      });
-    }
-
-    // Draw Property Center Pin
-    const centerPx = toPixel({ lat: centerLat, lng: centerLng });
-    ctx.beginPath();
-    ctx.arc(centerPx.x, centerPx.y, 8, 0, Math.PI * 2);
-    ctx.fillStyle = '#ef4444';
-    ctx.fill();
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.arc(centerPx.x, centerPx.y, 14, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(239, 68, 68, 0.4)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    ctx.fillStyle = '#38bdf8';
-    ctx.font = 'bold 11px sans-serif';
-    ctx.fillText('📍 Property Pin', centerPx.x + 12, centerPx.y - 10);
-  }, [latInput, lngInput, polyPoints]);
 
   return (
     <div
@@ -244,33 +237,19 @@ export default function PolygonMap({
           }}
         >
           <span>
-            💡 <strong>Interactive Polygon Tagging:</strong> Click on the map canvas below to plot property neighborhood boundary points (min 3 points).
+            💡 <strong>Interactive Map:</strong> Click anywhere on the map to plot property polygon points or update location.
           </span>
-          <div style={{ display: 'flex', gap: '0.4rem' }}>
-            <button
-              type="button"
-              className={`btn ${interactiveMode === 'polygon' ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ padding: '0.2rem 0.5rem', fontSize: '0.74rem' }}
-              onClick={() => {}}
-            >
-              📐 Polygon Mode
-            </button>
-          </div>
         </div>
       )}
 
-      {/* Canvas Map Container */}
+      {/* Leaflet Map Container */}
       <div style={{ position: 'relative', width: '100%', height }}>
-        <canvas
-          ref={canvasRef}
-          width={600}
-          height={340}
-          onClick={handleCanvasClick}
+        <div
+          ref={mapContainerRef}
           style={{
             width: '100%',
             height: '100%',
-            display: 'block',
-            cursor: readOnly ? 'default' : 'crosshair',
+            zIndex: 1,
           }}
         />
 
@@ -289,12 +268,13 @@ export default function PolygonMap({
             color: '#cbd5e1',
             display: 'flex',
             gap: '0.85rem',
+            zIndex: 1000,
             pointerEvents: 'none',
           }}
         >
           <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
             <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444' }}></span>
-            Property Location
+            Property Location Pin
           </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
             <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#c084fc' }}></span>

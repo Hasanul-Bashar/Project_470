@@ -157,6 +157,7 @@ export default function SpatialSearchFilter({ onFilterChange, onReset }) {
           <label className="form-label" style={{ fontSize: '0.78rem' }}>Property Type</label>
           <select
             className="form-input"
+            style={{ backgroundColor: '#0f172a', color: '#f8fafc' }}
             value={propertyType}
             onChange={(e) => setPropertyType(e.target.value)}
           >
@@ -164,9 +165,12 @@ export default function SpatialSearchFilter({ onFilterChange, onReset }) {
             <option value="Apartment">Apartment</option>
             <option value="House">House</option>
             <option value="Sublet">Sublet</option>
-            <option value="Studio">Studio</option>
+            <option value="Studio Apartment">Studio Apartment</option>
+            <option value="Duplex">Duplex</option>
             <option value="Villa">Villa</option>
             <option value="Commercial">Commercial</option>
+            <option value="Office">Office</option>
+            <option value="Room">Room Single/Shared</option>
           </select>
         </div>
 
@@ -175,12 +179,13 @@ export default function SpatialSearchFilter({ onFilterChange, onReset }) {
           <label className="form-label" style={{ fontSize: '0.78rem' }}>Furnished Status</label>
           <select
             className="form-input"
+            style={{ backgroundColor: '#0f172a', color: '#f8fafc' }}
             value={furnishedStatus}
             onChange={(e) => setFurnishedStatus(e.target.value)}
           >
             <option value="All">All Statuses</option>
             <option value="Furnished">Furnished</option>
-            <option value="Unfurnished">Unfurnished</option>
+            <option value="Unfurnished">Unfurnished / Not Furnished</option>
             <option value="Semi-Furnished">Semi-Furnished</option>
           </select>
         </div>

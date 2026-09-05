@@ -22,7 +22,8 @@ export default function NeighborhoodInfo({
       const res = await getNearbyPlaces(
         coordinates?.lat || 23.777176,
         coordinates?.lng || 90.399452,
-        2000
+        2000,
+        propertyTitle
       );
       setPlaces(res.data?.places || []);
     } catch (err) {

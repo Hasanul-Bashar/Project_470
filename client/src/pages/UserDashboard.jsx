@@ -650,6 +650,9 @@ export default function UserDashboard() {
                     <span style={{ fontSize: '0.72rem', fontWeight: 600, background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', padding: '0.2rem 0.55rem', borderRadius: '12px' }}>
                       📐 {listing.size || 1000} sqft
                     </span>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 600, background: listing.isAvailable !== false ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: listing.isAvailable !== false ? '#34d399' : '#f87171', padding: '0.2rem 0.55rem', borderRadius: '12px' }}>
+                      {listing.isAvailable !== false ? '🟢 Available' : '🔴 Rented Out'}
+                    </span>
                     {listing.polygon && listing.polygon.length >= 3 && (
                       <span style={{ fontSize: '0.72rem', fontWeight: 600, background: 'rgba(236, 72, 153, 0.15)', color: '#f472b6', padding: '0.2rem 0.55rem', borderRadius: '12px' }}>
                         📐 Polygon Area Tagged
@@ -701,16 +704,27 @@ export default function UserDashboard() {
                     📩 Book / Request Rental
                   </button>
 
-                  <button
-                    className="btn btn-secondary"
-                    style={{ fontSize: '0.78rem', padding: '0.5rem' }}
-                    onClick={() => {
-                      setActiveCalendarListing(listing);
-                      recordView(listing._id).catch(() => {});
-                    }}
-                  >
-                    🗓 View Calendar
-                  </button>
+                  {listing.isAvailable !== false ? (
+                    <button
+                      className="btn btn-secondary"
+                      style={{ fontSize: '0.78rem', padding: '0.5rem' }}
+                      onClick={() => {
+                        setActiveCalendarListing(listing);
+                        recordView(listing._id).catch(() => {});
+                      }}
+                    >
+                      🗓 View Calendar
+                    </button>
+                  ) : (
+                    <button
+                      className="btn btn-secondary"
+                      disabled
+                      style={{ fontSize: '0.78rem', padding: '0.5rem', opacity: 0.55, cursor: 'not-allowed' }}
+                      title="Calendar is only available for active properties"
+                    >
+                      🔒 Calendar Unavailable
+                    </button>
+                  )}
 
                   {/* Compare toggle */}
                   <button
@@ -795,9 +809,24 @@ export default function UserDashboard() {
         >
           <div style={{ padding: '1rem', maxHeight: '80vh', overflowY: 'auto' }}>
             <h3 style={{ margin: '0 0 0.5rem 0', color: '#f8fafc' }}>{detailListing.title}</h3>
-            <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.88rem' }}>
+            <p style={{ margin: '0 0 0.75rem 0', color: '#94a3b8', fontSize: '0.88rem' }}>
               📍 {detailListing.location} | BDT {detailListing.price?.toLocaleString()}/month
             </p>
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
+              <span style={{ fontSize: '0.78rem', fontWeight: 600, background: 'rgba(139, 92, 246, 0.15)', color: '#c084fc', padding: '0.25rem 0.65rem', borderRadius: '12px' }}>
+                🏠 {detailListing.propertyType || 'Apartment'}
+              </span>
+              <span style={{ fontSize: '0.78rem', fontWeight: 600, background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', padding: '0.25rem 0.65rem', borderRadius: '12px' }}>
+                🛋️ {detailListing.furnishedStatus || 'Furnished'}
+              </span>
+              <span style={{ fontSize: '0.78rem', fontWeight: 600, background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', padding: '0.25rem 0.65rem', borderRadius: '12px' }}>
+                📐 {detailListing.size || 1000} sqft
+              </span>
+              <span style={{ fontSize: '0.78rem', fontWeight: 600, background: detailListing.isAvailable !== false ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: detailListing.isAvailable !== false ? '#34d399' : '#f87171', padding: '0.25rem 0.65rem', borderRadius: '12px' }}>
+                {detailListing.isAvailable !== false ? '🟢 Available for Rent' : '🔴 Currently Rented / Unavailable'}
+              </span>
+            </div>
 
             {/* Polygon Map & Location Boundary */}
             <PolygonMap

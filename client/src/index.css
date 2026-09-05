@@ -399,18 +399,22 @@ tbody td { padding: .95rem 1.2rem; color: var(--t1); vertical-align: middle; }
 }
 .form-label .optional { font-weight: 400; color: var(--t3); margin-left: .25rem; }
 
-.form-input, .form-textarea, .form-select {
+.form-input, .form-textarea, .form-select, select {
   width: 100%; background: var(--bg-input); border: 1px solid var(--border);
   border-radius: var(--r-md); color: var(--t1);
   font-family: inherit; font-size: .875rem; padding: .65rem 1rem; outline: none;
   transition: var(--dur) var(--ease);
 }
-.form-input:focus, .form-textarea:focus, .form-select:focus {
+.form-input:focus, .form-textarea:focus, .form-select:focus, select:focus {
   border-color: rgba(139,92,246,.5); box-shadow: 0 0 0 3px rgba(139,92,246,.1);
 }
 .form-input::placeholder, .form-textarea::placeholder { color: var(--t3); }
 .form-textarea { resize: vertical; min-height: 110px; }
-.form-select option { background: var(--bg-elevated); }
+select option, .form-input option, .form-select option, option {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+  padding: 0.5rem;
+}
 
 /* ── Filter Tabs ─────────────────────────────────────────────── */
 .filter-tabs {
