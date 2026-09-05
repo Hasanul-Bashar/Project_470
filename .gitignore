@@ -34,3 +34,12 @@ build/
 # Uploads
 server/uploads/*
 !server/uploads/.gitkeep
+
+# Temporary storage & test artifacts
+server/storage/
+server/scripts/tunnel_url.txt
+server/scripts/tunnel.js
+server/scripts/test-member3-features.js
+server/scripts/test-new-features.js
+server/scripts/verify-local-runtime.js
+

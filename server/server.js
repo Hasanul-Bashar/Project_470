@@ -20,6 +20,7 @@ const rentRoutes         = require('./routes/rentRoutes');
 const maintenanceRoutes  = require('./routes/maintenanceRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const agreementRoutes    = require('./routes/agreementRoutes');
+const stripeRoutes       = require('./routes/stripeRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -27,6 +28,10 @@ const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/rentease';
 
 // ── CORS & Body Parsing & Static Uploads ───────────────────────
 app.use(cors({ origin: true, credentials: true }));
+
+// Stripe webhook requires raw body for signature verification — must come before express.json
+app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
+
 app.use(express.json({ limit: '50mb' }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
@@ -78,6 +83,7 @@ app.use('/api/rent',          rentRoutes);
 app.use('/api/maintenance',   maintenanceRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/agreements',    agreementRoutes);
+app.use('/api/stripe',        stripeRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {

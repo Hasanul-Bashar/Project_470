@@ -24,3 +24,11 @@ export const deleteRentPayment = (id) =>
 
 export const bulkGenerateRent = (data) =>
   api.post('/rent/bulk-generate', data);
+
+// ── Stripe Payments ──────────────────────────────────────────────
+export const createStripeCheckout = (rentPaymentId, amount) =>
+  api.post('/stripe/create-checkout', { rentPaymentId, amount });
+
+export const downloadReceipt = (paymentId) =>
+  api.get(`/stripe/receipt/${paymentId}`, { responseType: 'blob' });
+

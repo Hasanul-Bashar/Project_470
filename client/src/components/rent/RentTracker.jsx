@@ -6,6 +6,8 @@ import {
   updateRentStatus,
   deleteRentPayment,
   bulkGenerateRent,
+  createStripeCheckout,
+  downloadReceipt,
 } from '../../services/rentApi';
 
 export default function RentTracker() {
@@ -55,6 +57,27 @@ export default function RentTracker() {
   const [bulkDueDate, setBulkDueDate] = useState(
     new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
   );
+
+  // Pay with Stripe Modal (Partial & Full Payments)
+  const [payModal, setPayModal] = useState({
+    open: false,
+    payment: null,
+    amount: 0,
+    loading: false,
+    error: '',
+  });
+
+  // Listen for Stripe redirect query params (?payment=success / ?payment=cancelled)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('payment') === 'success') {
+      setSuccessMsg('🎉 Payment successful via Stripe! Your rent record & balance have been updated.');
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (urlParams.get('payment') === 'cancelled') {
+      setError('Stripe checkout was cancelled. You can retry paying at any time.');
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
 
   const fetchRentData = useCallback(async () => {
     try {
@@ -182,6 +205,63 @@ export default function RentTracker() {
     const diffTime = now - due;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays > 0 ? diffDays : 0;
+  };
+
+  // ── Stripe Checkout & Receipt Download Handlers ──────────────────
+  const handleOpenPayModal = (item) => {
+    const remaining = Math.max(0, item.amount - (item.amountPaid || 0));
+    setPayModal({
+      open: true,
+      payment: item,
+      amount: remaining,
+    });
+  };
+
+  const handleProceedToStripe = async (e) => {
+    e.preventDefault();
+    if (!payModal.payment) return;
+    const remaining = Math.max(0, payModal.payment.amount - (payModal.payment.amountPaid || 0));
+    const payAmt = Number(payModal.amount);
+    if (isNaN(payAmt) || payAmt <= 0) {
+      setPayModal((prev) => ({ ...prev, error: 'Please enter a valid amount greater than 0' }));
+      return;
+    }
+    if (payAmt > remaining) {
+      setPayModal((prev) => ({
+        ...prev,
+        error: `Amount exceeds remaining balance of $${remaining.toLocaleString()}`,
+      }));
+      return;
+    }
+
+    // Navigate to the Stripe Checkout Gateway interstitial page
+    const p = payModal.payment;
+    const params = new URLSearchParams({
+      paymentId: p._id,
+      amount: payAmt.toString(),
+      title: p.listingTitle || 'Rent Payment',
+      tenantEmail: p.tenantEmail || '',
+      totalAmount: p.amount.toString(),
+    });
+    window.location.href = `/stripe-checkout?${params.toString()}`;
+  };
+
+  const handleDownloadReceipt = async (paymentId, month) => {
+    try {
+      const res = await downloadReceipt(paymentId);
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `rent-receipt-${paymentId.slice(-6)}-${month}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Download receipt error:', err);
+      alert('Could not download receipt. Ensure the payment is completed or partial.');
+    }
   };
 
   return (
@@ -352,7 +432,7 @@ export default function RentTracker() {
                 <th style={{ padding: '12px' }}>Due Date & Overdue Flag</th>
                 <th style={{ padding: '12px' }}>Status</th>
                 <th style={{ padding: '12px' }}>Payment Info</th>
-                {canManage && <th style={{ padding: '12px', textAlign: 'right' }}>Actions</th>}
+                <th style={{ padding: '12px', textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -392,6 +472,11 @@ export default function RentTracker() {
                       <div style={{ fontWeight: 700, color: '#f8fafc', fontSize: '1rem' }}>
                         ৳{p.amount?.toLocaleString()}
                       </div>
+                      {p.amountPaid > 0 && p.status !== 'paid' && (
+                        <div style={{ fontSize: '0.74rem', color: '#10b981', marginTop: '2px' }}>
+                          Paid: ৳{p.amountPaid?.toLocaleString()} | Rem: ৳{(p.amount - p.amountPaid)?.toLocaleString()}
+                        </div>
+                      )}
                       {p.bookedDays > 0 ? (
                         <div style={{ fontSize: '0.76rem', color: '#38bdf8', marginTop: '2px', fontWeight: 500 }}>
                           📆 {p.bookedDays} day{p.bookedDays > 1 ? 's' : ''} {p.dailyRate ? `(@ ৳${p.dailyRate.toLocaleString()}/d)` : ''}
@@ -434,6 +519,11 @@ export default function RentTracker() {
                           ✅ PAID
                         </span>
                       )}
+                      {p.status === 'partial' && (
+                        <span className="badge" style={{ background: '#f59e0b22', color: '#f59e0b', border: '1px solid #f59e0b44' }}>
+                          ⚡ PARTIAL
+                        </span>
+                      )}
                       {p.status === 'due' && !isOverdueFlagged && (
                         <span className="badge" style={{ background: '#3b82f622', color: '#3b82f6', border: '1px solid #3b82f644' }}>
                           ⏳ DUE
@@ -455,6 +545,11 @@ export default function RentTracker() {
                     {/* Payment Info */}
                     <td style={{ padding: '14px 12px', fontSize: '0.82rem', color: '#94a3b8' }}>
                       <div>Method: <strong>{p.paymentMethod || 'Cash'}</strong></div>
+                      {p.stripePayments && p.stripePayments.length > 0 && (
+                        <div style={{ color: '#818cf8', fontSize: '0.75rem', marginTop: '2px' }}>
+                          💳 {p.stripePayments.length} Stripe payment(s)
+                        </div>
+                      )}
                       {p.paidDate && (
                         <div style={{ color: '#10b981' }}>
                           Paid: {new Date(p.paidDate).toLocaleDateString()}
@@ -463,57 +558,89 @@ export default function RentTracker() {
                       {p.notes && <div style={{ fontStyle: 'italic', color: '#64748b' }}>"{p.notes}"</div>}
                     </td>
 
-                    {/* Landlord / Admin Actions */}
-                    {canManage && (
-                      <td style={{ padding: '14px 12px', textAlign: 'right' }}>
-                        <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
-                          {p.status !== 'paid' && (
-                            <button
-                              className="btn btn-sm"
-                              onClick={() => handleQuickStatusChange(p._id, 'paid')}
-                              style={{ background: '#10b981', color: '#fff', fontSize: '0.75rem', padding: '4px 8px' }}
-                              title="Mark as Paid"
-                            >
-                              Mark Paid
-                            </button>
-                          )}
-                          {p.status !== 'overdue' && (
-                            <button
-                              className="btn btn-sm"
-                              onClick={() => handleQuickStatusChange(p._id, 'overdue')}
-                              style={{ background: '#ef4444', color: '#fff', fontSize: '0.75rem', padding: '4px 8px' }}
-                              title="Flag Overdue"
-                            >
-                              Flag Overdue
-                            </button>
-                          )}
-                          {p.status !== 'due' && (
-                            <button
-                              className="btn btn-sm"
-                              onClick={() => handleQuickStatusChange(p._id, 'due')}
-                              style={{ background: '#3b82f6', color: '#fff', fontSize: '0.75rem', padding: '4px 8px' }}
-                              title="Mark as Due"
-                            >
-                              Mark Due
-                            </button>
-                          )}
+                    {/* Actions */}
+                    <td style={{ padding: '14px 12px', textAlign: 'right' }}>
+                      <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' }}>
+                        {/* Tenant Action: Pay with Stripe for due/overdue/partial */}
+                        {!canManage && p.status !== 'paid' && (
+                          <button
+                            className="btn btn-sm"
+                            onClick={() => handleOpenPayModal(p)}
+                            style={{
+                              background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+                              color: '#fff',
+                              fontSize: '0.8rem',
+                              padding: '5px 12px',
+                              alignItems: 'center',
+                              gap: '4px',
+                            }}
+                            title="Pay with Stripe Checkout"
+                          >
+                            💳 Pay with Stripe
+                          </button>
+                        )}
+
+                        {/* Receipt Download for anyone when payment exists */}
+                        {(p.status === 'paid' || (p.amountPaid && p.amountPaid > 0)) && (
                           <button
                             className="btn btn-sm btn-outline"
-                            onClick={() => handleOpenEditModal(p)}
-                            style={{ fontSize: '0.75rem', padding: '4px 8px' }}
+                            onClick={() => handleDownloadReceipt(p._id, p.month)}
+                            style={{ fontSize: '0.75rem', padding: '4px 8px', color: '#38bdf8', borderColor: 'rgba(56,189,248,0.4)' }}
+                            title="Download Official PDF Rent Receipt"
                           >
-                            ✏️ Edit
+                            📄 Receipt
                           </button>
-                          <button
-                            className="btn btn-sm btn-danger"
-                            onClick={() => handleDelete(p._id)}
-                            style={{ fontSize: '0.75rem', padding: '4px 8px' }}
-                          >
-                            🗑
-                          </button>
-                        </div>
-                      </td>
-                    )}
+                        )}
+                        {canManage && (
+                          <>
+                            {p.status !== 'paid' && (
+                              <button
+                                className="btn btn-sm"
+                                onClick={() => handleQuickStatusChange(p._id, 'paid')}
+                                style={{ background: '#10b981', color: '#fff', fontSize: '0.75rem', padding: '4px 8px' }}
+                                title="Mark as Paid"
+                              >
+                                Mark Paid
+                              </button>
+                            )}
+                            {p.status !== 'overdue' && (
+                              <button
+                                className="btn btn-sm"
+                                onClick={() => handleQuickStatusChange(p._id, 'overdue')}
+                                style={{ background: '#ef4444', color: '#fff', fontSize: '0.75rem', padding: '4px 8px' }}
+                                title="Flag Overdue"
+                              >
+                                Flag Overdue
+                              </button>
+                            )}
+                            {p.status !== 'due' && (
+                              <button
+                                className="btn btn-sm"
+                                onClick={() => handleQuickStatusChange(p._id, 'due')}
+                                style={{ background: '#3b82f6', color: '#fff', fontSize: '0.75rem', padding: '4px 8px' }}
+                                title="Mark as Due"
+                              >
+                                Mark Due
+                              </button>
+                            )}
+                            <button
+                              className="btn btn-sm btn-outline"
+                              onClick={() => handleOpenEditModal(p)}
+                              style={{ fontSize: '0.75rem', padding: '4px 8px' }}
+                            >
+                              ✏️ Edit
+                            </button>
+                            <button
+                              className="btn btn-sm btn-danger"
+                              onClick={() => handleDelete(p._id)}
+                              style={{ fontSize: '0.75rem', padding: '4px 8px' }}
+                            >
+                              🗑
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 );
               })}
@@ -749,6 +876,152 @@ export default function RentTracker() {
                 </button>
                 <button type="submit" className="btn btn-primary">
                   Generate Records
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal 3: Pay with Stripe (Partial & Full Payments) ─────────────── */}
+      {payModal.open && payModal.payment && (
+        <div className="modal-backdrop" onClick={() => !payModal.loading && setPayModal({ open: false, payment: null, amount: 0, loading: false, error: '' })}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '480px' }}>
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <span style={{ fontSize: '1.4rem' }}>💳</span>
+                <div>
+                  <h3 style={{ margin: 0 }}>Pay Rent with Stripe</h3>
+                  <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Secure Card Payment & Instant Receipt</div>
+                </div>
+              </div>
+              <button
+                className="close-btn"
+                disabled={payModal.loading}
+                onClick={() => setPayModal({ open: false, payment: null, amount: 0, loading: false, error: '' })}
+              >
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleProceedToStripe}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                {payModal.error && (
+                  <div className="alert alert-danger" style={{ fontSize: '0.85rem', padding: '0.6rem 0.8rem' }}>
+                    ⚠️ {payModal.error}
+                  </div>
+                )}
+
+                {/* Property & Rent Summary */}
+                <div style={{ background: '#0e1017', padding: '1rem', borderRadius: '10px', border: '1px solid #232736' }}>
+                  <div style={{ fontWeight: 600, color: '#f8fafc', fontSize: '1rem', marginBottom: '0.2rem' }}>
+                    {payModal.payment.listingTitle}
+                  </div>
+                  <div style={{ fontSize: '0.82rem', color: '#94a3b8', marginBottom: '0.8rem' }}>
+                    Billing Cycle: <strong>{payModal.payment.month}</strong> &nbsp;•&nbsp; Due Date: <strong>{new Date(payModal.payment.dueDate).toLocaleDateString()}</strong>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.6rem', textAlign: 'center', background: '#181920', padding: '0.75rem', borderRadius: '8px' }}>
+                    <div>
+                      <div style={{ fontSize: '0.72rem', color: '#94a3b8', textTransform: 'uppercase' }}>Total Due</div>
+                      <div style={{ fontWeight: 700, color: '#f8fafc', fontSize: '0.95rem' }}>
+                        ${payModal.payment.amount?.toLocaleString()}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.72rem', color: '#94a3b8', textTransform: 'uppercase' }}>Paid So Far</div>
+                      <div style={{ fontWeight: 700, color: '#10b981', fontSize: '0.95rem' }}>
+                        ${(payModal.payment.amountPaid || 0).toLocaleString()}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.72rem', color: '#94a3b8', textTransform: 'uppercase' }}>Remaining</div>
+                      <div style={{ fontWeight: 700, color: '#ef4444', fontSize: '0.95rem' }}>
+                        ${Math.max(0, payModal.payment.amount - (payModal.payment.amountPaid || 0)).toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Payment Amount Input */}
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                    <label className="form-label" style={{ margin: 0 }}>Payment Amount ($ USD) *</label>
+                    <span style={{ fontSize: '0.75rem', color: '#6366f1', fontWeight: 600 }}>Partial payments supported</span>
+                  </div>
+                  <div style={{ position: 'relative' }}>
+                    <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontWeight: 600 }}>$</span>
+                    <input
+                      type="number"
+                      className="input"
+                      required
+                      min="1"
+                      max={Math.max(1, payModal.payment.amount - (payModal.payment.amountPaid || 0))}
+                      value={payModal.amount}
+                      onChange={(e) => setPayModal({ ...payModal, amount: e.target.value, error: '' })}
+                      style={{ paddingLeft: '26px', fontSize: '1.1rem', fontWeight: 700 }}
+                      disabled={payModal.loading}
+                    />
+                  </div>
+
+                  {/* Preset Quick Select Buttons */}
+                  {(() => {
+                    const remaining = Math.max(0, payModal.payment.amount - (payModal.payment.amountPaid || 0));
+                    return (
+                      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline"
+                          onClick={() => setPayModal({ ...payModal, amount: remaining, error: '' })}
+                          style={{ fontSize: '0.75rem', flex: 1 }}
+                        >
+                          Pay Full (${remaining.toLocaleString()})
+                        </button>
+                        {remaining > 50 && (
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline"
+                            onClick={() => setPayModal({ ...payModal, amount: Math.round(remaining / 2), error: '' })}
+                            style={{ fontSize: '0.75rem', flex: 1 }}
+                          >
+                            Pay 50% (${Math.round(remaining / 2).toLocaleString()})
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* State Machine Explanatory Card */}
+                <div style={{ fontSize: '0.75rem', color: '#94a3b8', background: 'rgba(99, 102, 241, 0.07)', border: '1px dashed rgba(99, 102, 241, 0.3)', padding: '0.6rem 0.8rem', borderRadius: '8px', lineHeight: 1.4 }}>
+                  🔒 <strong>Payment Lifecycle:</strong> If you pay less than the remaining balance, this cycle will transition to <em>Partial</em> and keep your running balance. Once the full amount is fulfilled, it transitions to <em>Paid</em> and generates your official receipt.
+                </div>
+              </div>
+
+              <div className="modal-footer" style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end', gap: '0.8rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  disabled={payModal.loading}
+                  onClick={() => setPayModal({ open: false, payment: null, amount: 0, loading: false, error: '' })}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={payModal.loading}
+                  style={{
+                    background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+                    border: 'none',
+                    fontWeight: 600,
+                    boxShadow: '0 4px 14px rgba(99, 102, 241, 0.4)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                  }}
+                >
+                  {payModal.loading ? 'Connecting to Stripe...' : `Pay $${Number(payModal.amount || 0).toLocaleString()} with Stripe →`}
                 </button>
               </div>
             </form>

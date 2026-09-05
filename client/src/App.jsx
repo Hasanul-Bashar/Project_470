@@ -10,6 +10,7 @@ import AnalyticsDashboard from './pages/AnalyticsDashboard';
 import RentTrackingPage from './pages/RentTrackingPage';
 import MaintenancePage from './pages/MaintenancePage';
 import AgreementsPage from './pages/AgreementsPage';
+import StripeCheckoutGateway from './pages/StripeCheckoutGateway';
 
 function RootRedirect() {
   const { user } = useAuth();
@@ -37,6 +38,7 @@ function App() {
             <Route path="/complaints" element={<ComplaintsPage />} />
             <Route path="/landlord-analytics" element={<AnalyticsDashboard />} />
             <Route path="/rent-tracking" element={<RentTrackingPage />} />
+            <Route path="/stripe-checkout" element={<StripeCheckoutGateway />} />
             <Route path="/maintenance" element={<MaintenancePage />} />
             <Route path="/agreements" element={<AgreementsPage />} />
 

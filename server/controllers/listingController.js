@@ -66,6 +66,8 @@ exports.createListing = async (req, res) => {
       nearbyFacilities,
       coordinates,
       polygon,
+      virtualTourUrl,
+      virtualTourType,
     } = req.body;
 
     const resolved = resolveLocationCoordinates(location, title, coordinates, polygon);
@@ -95,6 +97,8 @@ exports.createListing = async (req, res) => {
       status: 'pending',
       landlordId: req.user.id,
       bookedDates: [],
+      virtualTourUrl: virtualTourUrl || '',
+      virtualTourType: virtualTourType || 'youtube',
     });
 
     return res.status(201).json({

@@ -29,15 +29,26 @@ const RentPaymentSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ['paid', 'due', 'overdue'],
+      enum: ['paid', 'due', 'overdue', 'partial'],
       default: 'due',
     },
 
     paidDate: { type: Date, default: null },
-    paymentMethod: { type: String, default: 'Cash' }, // e.g. Cash, Bank Transfer, bKash, Online
+    paymentMethod: { type: String, default: 'Cash' }, // e.g. Cash, Bank Transfer, bKash, Online, Stripe
     notes: { type: String, default: '' },
 
     overdueFlagged: { type: Boolean, default: false },
+
+    // ── Stripe Payment Tracking ─────────────────────────────
+    amountPaid: { type: Number, default: 0, min: 0 },        // Running total of all payments received
+    stripeSessionId: { type: String, default: '' },           // Last Stripe checkout session ID
+    stripePayments: [                                         // History of each individual Stripe payment
+      {
+        sessionId: { type: String, required: true },
+        amount: { type: Number, required: true },
+        paidAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true }
 );

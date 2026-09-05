@@ -63,6 +63,14 @@ const ListingSchema = new mongoose.Schema(
     },
 
     bookedDates: [{ type: String }],
+
+    // Virtual Tour Features (360 Panoramas, 3D Matterport iframes, YouTube Walkthroughs)
+    virtualTourUrl: { type: String, default: '' },
+    virtualTourType: {
+      type: String,
+      enum: ['youtube', 'image360', 'iframe'],
+      default: 'youtube',
+    },
   },
   { timestamps: true }
 );

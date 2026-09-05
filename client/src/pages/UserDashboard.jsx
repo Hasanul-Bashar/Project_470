@@ -15,6 +15,7 @@ import NeighborhoodInfo from '../components/NeighborhoodInfo';
 import PolygonMap from '../components/PolygonMap';
 import { getImageUrl, PLACEHOLDER_IMAGE } from '../utils/imageUtils';
 import AiAssistantWidget from '../components/assistant/AiAssistantWidget';
+import VirtualTourViewer from '../components/VirtualTourViewer';
 
 export default function UserDashboard() {
   const { user } = useAuth();
@@ -59,6 +60,9 @@ export default function UserDashboard() {
 
   // Feature 3: Expanded listing view (for reviews)
   const [expandedListingId, setExpandedListingId] = useState(null);
+
+  // Virtual Tour modal state
+  const [tourListing, setTourListing] = useState(null);
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -745,6 +749,32 @@ export default function UserDashboard() {
                     💬 Chat with Landlord
                   </button>
 
+                  {/* Virtual Tour Button */}
+                  {listing.virtualTourUrl && (
+                    <button
+                      className="btn"
+                      style={{
+                        fontSize: '0.8rem',
+                        padding: '0.52rem',
+                        gridColumn: '1 / -1',
+                        background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+                        color: '#ffffff',
+                        fontWeight: '700',
+                        border: 'none',
+                        boxShadow: '0 2px 8px rgba(99, 102, 241, 0.35)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.45rem',
+                        cursor: 'pointer',
+                        borderRadius: '8px',
+                      }}
+                      onClick={() => setTourListing(listing)}
+                    >
+                      🎬 {listing.virtualTourType === 'image360' ? '🔄 Explore 360° Panorama Tour' : listing.virtualTourType === 'iframe' ? '🌐 Open 3D Virtual Tour' : '📺 Watch Video Walkthrough'}
+                    </button>
+                  )}
+
                   {/* Reviews expander */}
                   <button
                     className="btn btn-secondary"
@@ -842,6 +872,34 @@ export default function UserDashboard() {
               propertyTitle={detailListing.title}
               manualFacilities={detailListing.nearbyFacilities}
             />
+
+            {/* Virtual Tour Option */}
+            {detailListing.virtualTourUrl && (
+              <div style={{ marginTop: '1rem' }}>
+                <button
+                  type="button"
+                  className="btn"
+                  style={{
+                    width: '100%',
+                    background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+                    color: '#ffffff',
+                    fontWeight: '700',
+                    border: 'none',
+                    padding: '0.65rem 1rem',
+                    borderRadius: '8px',
+                    boxShadow: '0 2px 10px rgba(99, 102, 241, 0.35)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => setTourListing(detailListing)}
+                >
+                  🎬 {detailListing.virtualTourType === 'image360' ? '🔄 Open 360° Interactive Panorama Tour' : detailListing.virtualTourType === 'iframe' ? '🌐 Open 3D Virtual Tour' : '📺 Watch Video Walkthrough'}
+                </button>
+              </div>
+            )}
 
             <div style={{ marginTop: '1.25rem', textAlign: 'right' }}>
               <button
@@ -994,6 +1052,17 @@ export default function UserDashboard() {
             AI
           </span>
         </button>
+      )}
+
+      {/* Virtual Tour Viewer Modal */}
+      {tourListing && (
+        <VirtualTourViewer
+          isOpen={Boolean(tourListing)}
+          onClose={() => setTourListing(null)}
+          tourUrl={tourListing.virtualTourUrl}
+          tourType={tourListing.virtualTourType}
+          title={`${tourListing.title} — Virtual Tour`}
+        />
       )}
 
       {/* Toasts */}

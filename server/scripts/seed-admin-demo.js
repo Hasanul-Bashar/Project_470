@@ -158,6 +158,8 @@ async function seed() {
         status:      'approved',
         isAvailable: true,
         landlordId:  landlords[0]._id,
+        virtualTourUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        virtualTourType: 'youtube',
       },
       {
         title:       'Cozy Studio Apartment in Dhanmondi',
@@ -176,6 +178,8 @@ async function seed() {
         status:      'approved',
         isAvailable: true,
         landlordId:  landlords[1]._id,
+        virtualTourUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        virtualTourType: 'youtube',
       },
       {
         title:       'Spacious Sublet Room in Banani',
@@ -194,6 +198,8 @@ async function seed() {
         status:      'approved',
         isAvailable: true,
         landlordId:  landlords[2]._id,
+        virtualTourUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        virtualTourType: 'youtube',
       },
     ]);
 
