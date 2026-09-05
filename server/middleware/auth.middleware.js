@@ -28,7 +28,14 @@ const authenticate = async (req, res, next) => {
         if (savedUserHeader) {
           try {
             req.user = typeof savedUserHeader === 'string' ? JSON.parse(savedUserHeader) : savedUserHeader;
-          } catch (e) {}
+          } catch (e) { }
+        } else if (token) {
+          try {
+            const decoded = JSON.parse(Buffer.from(token, 'base64').toString('utf-8'));
+            if (decoded && decoded.role) {
+              req.user = decoded;
+            }
+          } catch (e) { }
         }
 
         // Try extracting user ID from mock-jwt-token-<id>-<timestamp>

@@ -27,3 +27,15 @@ export const verifyAgreementHash = (id) =>
 
 export const getAgreementDownloadUrl = (id) =>
   `/api/agreements/${id}/download`;
+
+export const claimAgreementByPasskey = (passkey) =>
+  api.post('/agreements/claim', { passkey });
+
+export const tenantAgreeToAgreement = (id) =>
+  api.post(`/agreements/${id}/tenant-agree`);
+
+export const adminApproveAgreement = (id) =>
+  api.post(`/agreements/${id}/admin-approve`);
+
+export const rejectAgreement = (id, reason = '') =>
+  api.post(`/agreements/${id}/reject`, { reason });

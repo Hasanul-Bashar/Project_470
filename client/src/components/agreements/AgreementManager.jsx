@@ -6,10 +6,17 @@ import {
   generateAgreementPdf,
   verifyAgreementHash,
   getAgreementDownloadUrl,
+  claimAgreementByPasskey,
+  tenantAgreeToAgreement,
+  adminApproveAgreement,
+  rejectAgreement,
 } from '../../services/agreementApi';
 
 export default function AgreementManager() {
   const { user } = useAuth();
+  const isLandlord = user?.role === 'landlord';
+  const isAdmin = user?.role === 'admin';
+  const canCreate = isLandlord || isAdmin;
 
   const [agreements, setAgreements] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -21,6 +28,19 @@ export default function AgreementManager() {
   const [verifyResultModal, setVerifyResultModal] = useState(null);
   const [verifyingId, setVerifyingId] = useState(null);
   const [generatingId, setGeneratingId] = useState(null);
+
+  // Workflow action states
+  const [actioningId, setActioningId] = useState(null);
+  const [rejectModal, setRejectModal] = useState(null);
+  const [rejectReason, setRejectReason] = useState('');
+
+  // Passkey states
+  const [passkeyResultModal, setPasskeyResultModal] = useState(null); // { passkey, agreementId } — shown to landlord
+  const [copiedPasskey, setCopiedPasskey] = useState(false);
+  const [claimModal, setClaimModal] = useState(false);  // tenant enters passkey here
+  const [claimInput, setClaimInput] = useState('');
+  const [claimError, setClaimError] = useState('');
+  const [claiming, setClaiming] = useState(false);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -80,7 +100,7 @@ export default function AgreementManager() {
         { title: formData.clause3Title, text: formData.clause3Text },
       ].filter((c) => c.title && c.text);
 
-      await createAgreement({
+      const res = await createAgreement({
         tenantName: formData.tenantName,
         tenantEmail: formData.tenantEmail,
         tenantPhone: formData.tenantPhone,
@@ -99,9 +119,32 @@ export default function AgreementManager() {
       });
 
       setIsCreateModalOpen(false);
+      // ── Show the passkey to the landlord ──
+      setPasskeyResultModal({
+        passkey: res.data.passkey,
+        agreementId: res.data.agreementId,
+        listingTitle: formData.listingTitle,
+      });
       fetchAgreements();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to create rental agreement');
+    }
+  };
+
+  // Handle Claim Agreement via Passkey (Tenant)
+  const handleClaimPasskey = async () => {
+    setClaimError('');
+    if (!claimInput.trim()) { setClaimError('Please enter the passkey.'); return; }
+    setClaiming(true);
+    try {
+      await claimAgreementByPasskey(claimInput.trim());
+      setClaimModal(false);
+      setClaimInput('');
+      fetchAgreements();
+    } catch (err) {
+      setClaimError(err.response?.data?.message || 'Invalid passkey. Please try again.');
+    } finally {
+      setClaiming(false);
     }
   };
 
@@ -132,11 +175,85 @@ export default function AgreementManager() {
     }
   };
 
-  // Summary Metrics
+  // Handle Tenant Agree
+  const handleTenantAgree = async (id) => {
+    if (!window.confirm('By clicking OK, you confirm that you have read and agree to all terms of this rental agreement.')) return;
+    setActioningId(id);
+    try {
+      await tenantAgreeToAgreement(id);
+      fetchAgreements();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to submit agreement approval.');
+    } finally {
+      setActioningId(null);
+    }
+  };
+
+  // Handle Admin Approve
+  const handleAdminApprove = async (id) => {
+    if (!window.confirm('Confirm final approval of this rental agreement? Both parties will be notified.')) return;
+    setActioningId(id);
+    try {
+      await adminApproveAgreement(id);
+      fetchAgreements();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to approve agreement.');
+    } finally {
+      setActioningId(null);
+    }
+  };
+
+  // Handle Reject
+  const handleRejectSubmit = async () => {
+    if (!rejectModal) return;
+    setActioningId(rejectModal.id);
+    try {
+      await rejectAgreement(rejectModal.id, rejectReason || 'No reason provided.');
+      setRejectModal(null);
+      setRejectReason('');
+      fetchAgreements();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to reject agreement.');
+    } finally {
+      setActioningId(null);
+    }
+  };
+
+  // Status helpers
+  const getStatusBadge = (status) => {
+    const badges = {
+      pending_claim:  { bg: 'rgba(168,85,247,0.15)', color: '#c084fc', border: '#a855f7', label: '🔑 Awaiting Claim' },
+      pending_tenant: { bg: 'rgba(245,158,11,0.15)', color: '#fbbf24', border: '#f59e0b', label: '⏳ Awaiting Tenant' },
+      pending_admin:  { bg: 'rgba(59,130,246,0.15)', color: '#60a5fa', border: '#3b82f6', label: '🔵 Awaiting Admin' },
+      approved:       { bg: 'rgba(16,185,129,0.15)', color: '#34d399', border: '#10b981', label: '✅ Approved' },
+      rejected:       { bg: 'rgba(239,68,68,0.15)',  color: '#fca5a5', border: '#ef4444', label: '❌ Rejected' },
+      Finalized:      { bg: 'rgba(16,185,129,0.15)', color: '#34d399', border: '#10b981', label: '✅ Finalized' },
+      Signed:         { bg: 'rgba(16,185,129,0.15)', color: '#34d399', border: '#10b981', label: '✅ Signed' },
+      Draft:          { bg: 'rgba(100,116,139,0.15)', color: '#94a3b8', border: '#64748b', label: '📝 Draft' },
+    };
+    return badges[status] || { bg: 'rgba(100,116,139,0.15)', color: '#94a3b8', border: '#64748b', label: status };
+  };
+
+  const PIPELINE_STEPS = [
+    { key: 'pending_claim',  label: '🔑 Passkey Claim' },
+    { key: 'pending_tenant', label: '👤 Tenant Review' },
+    { key: 'pending_admin',  label: '🛡 Admin Review' },
+    { key: 'approved',       label: '✅ Fully Approved' },
+  ];
+
+  const getPipelineStep = (status) => {
+    if (status === 'pending_claim')  return 0;
+    if (status === 'pending_tenant') return 1;
+    if (status === 'pending_admin')  return 2;
+    if (status === 'approved')       return 3;
+    if (status === 'rejected')       return -1;
+    return 0;
+  };
   const totalAgreements = agreements.length;
   const verifiedCount = agreements.filter((a) => a.isVerified).length;
-  const finalizedCount = agreements.filter((a) => a.status === 'Finalized' || a.status === 'Signed').length;
+  const finalizedCount = agreements.filter((a) => a.status === 'approved' || a.status === 'Finalized' || a.status === 'Signed').length;
   const totalRentValue = agreements.reduce((sum, a) => sum + (a.rentAmount || 0), 0);
+  const pendingCount = agreements.filter((a) => a.status === 'pending_tenant' || a.status === 'pending_admin').length;
 
   return (
     <div className="agreement-manager-container" style={{ color: '#f8fafc' }}>
@@ -163,17 +280,15 @@ export default function AgreementManager() {
         </div>
 
         <div className="panel" style={{ background: '#13151f', border: '1px solid #272a37', padding: '1.25rem', borderRadius: '12px' }}>
-          <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '4px' }}>📑 Finalized PDF Contracts</div>
+          <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '4px' }}>📑 Finalized / Approved</div>
           <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#3b82f6' }}>{finalizedCount}</div>
           <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>Ready for download</div>
         </div>
 
         <div className="panel" style={{ background: '#13151f', border: '1px solid #272a37', padding: '1.25rem', borderRadius: '12px' }}>
-          <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '4px' }}>💰 Monthly Active Rent Value</div>
-          <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#a855f7' }}>
-            ৳{totalRentValue.toLocaleString()}
-          </div>
-          <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>Total monthly contract value</div>
+          <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '4px' }}>⏳ Awaiting Action</div>
+          <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#f59e0b' }}>{pendingCount}</div>
+          <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>Pending review</div>
         </div>
       </div>
 
@@ -206,22 +321,44 @@ export default function AgreementManager() {
           />
         </div>
 
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
           <button
-            className="btn btn-primary"
-            onClick={() => setIsCreateModalOpen(true)}
-            id="btn-create-agreement"
+            className="btn btn-outline"
+            onClick={() => { setClaimError(''); setClaimInput(''); setClaimModal(true); }}
+            id="btn-claim-passkey"
             style={{
-              background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
-              border: 'none',
+              background: 'rgba(168,85,247,0.15)',
+              border: '1px solid #a855f7',
+              color: '#c084fc',
               fontWeight: 600,
               padding: '0.6rem 1.2rem',
               borderRadius: '8px',
               cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
             }}
           >
-            ➕ Generate New Agreement
+            🔑 Claim with Passkey
           </button>
+
+          {canCreate && (
+            <button
+              className="btn btn-primary"
+              onClick={() => setIsCreateModalOpen(true)}
+              id="btn-create-agreement"
+              style={{
+                background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+                border: 'none',
+                fontWeight: 600,
+                padding: '0.6rem 1.2rem',
+                borderRadius: '8px',
+                cursor: 'pointer',
+              }}
+            >
+              ➕ Generate New Agreement
+            </button>
+          )}
         </div>
       </div>
 
@@ -259,14 +396,35 @@ export default function AgreementManager() {
           <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📄</div>
           <h3 style={{ color: '#f8fafc', marginBottom: '0.5rem' }}>No Rental Agreements Found</h3>
           <p style={{ color: '#64748b', fontSize: '0.9rem', maxWidth: '500px', margin: '0 auto 1.5rem' }}>
-            Generate a new templated rental contract populated with tenant, landlord, property details, and custom clauses. Includes SHA-256 tamper verification.
+            {canCreate
+              ? 'Generate a new templated rental contract. An 8-character Passkey will be generated for your tenant to claim and review.'
+              : 'Have a passkey from your landlord? Click below to claim and review your agreement.'}
           </p>
-          <button
-            className="btn btn-primary"
-            onClick={() => setIsCreateModalOpen(true)}
-          >
-            ➕ Generate New Agreement
-          </button>
+          <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button
+              className="btn btn-secondary"
+              onClick={() => { setClaimError(''); setClaimInput(''); setClaimModal(true); }}
+              style={{
+                background: 'rgba(168,85,247,0.2)',
+                border: '1px solid #a855f7',
+                color: '#c084fc',
+                fontWeight: 600,
+                padding: '0.6rem 1.4rem',
+                borderRadius: '8px',
+                cursor: 'pointer',
+              }}
+            >
+              🔑 Claim Agreement with Passkey
+            </button>
+            {canCreate && (
+              <button
+                className="btn btn-primary"
+                onClick={() => setIsCreateModalOpen(true)}
+              >
+                ➕ Generate New Agreement
+              </button>
+            )}
+          </div>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -296,7 +454,7 @@ export default function AgreementManager() {
                   paddingBottom: '0.8rem',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
                   <span
                     style={{
                       background: 'rgba(99,102,241,0.15)',
@@ -312,19 +470,23 @@ export default function AgreementManager() {
                     📄 {item.agreementId}
                   </span>
 
-                  <span
-                    style={{
-                      background: item.status === 'Finalized' || item.status === 'Signed' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                      color: item.status === 'Finalized' || item.status === 'Signed' ? '#34d399' : '#fbbf24',
-                      border: `1px solid ${item.status === 'Finalized' || item.status === 'Signed' ? '#10b981' : '#f59e0b'}`,
-                      padding: '3px 9px',
-                      borderRadius: '20px',
-                      fontSize: '0.75rem',
-                      fontWeight: 700,
-                    }}
-                  >
-                    {item.status}
-                  </span>
+                  {/* Status Badge */}
+                  {(() => {
+                    const badge = getStatusBadge(item.status);
+                    return (
+                      <span style={{
+                        background: badge.bg,
+                        color: badge.color,
+                        border: `1px solid ${badge.border}`,
+                        padding: '3px 10px',
+                        borderRadius: '20px',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                      }}>
+                        {badge.label}
+                      </span>
+                    );
+                  })()}
 
                   {item.isVerified && (
                     <span
@@ -348,6 +510,57 @@ export default function AgreementManager() {
                   Created: {new Date(item.createdAt).toLocaleDateString()}
                 </div>
               </div>
+
+              {/* ── Approval Pipeline Progress ─────────────────── */}
+              {item.status !== 'rejected' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: '0.25rem' }}>
+                  {PIPELINE_STEPS.map((step, idx) => {
+                    const currentStep = getPipelineStep(item.status);
+                    const isDone = idx < currentStep;
+                    const isActive = idx === currentStep;
+                    return (
+                      <div key={step.key} style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                          <div style={{
+                            width: '28px', height: '28px', borderRadius: '50%',
+                            background: isDone ? '#10b981' : isActive ? '#6366f1' : '#1e2235',
+                            border: `2px solid ${isDone ? '#10b981' : isActive ? '#818cf8' : '#2d3348'}`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: '0.75rem', fontWeight: 700,
+                            color: isDone || isActive ? '#fff' : '#64748b',
+                            transition: 'all 0.3s',
+                          }}>
+                            {isDone ? '✓' : idx + 1}
+                          </div>
+                          <div style={{
+                            fontSize: '0.65rem',
+                            color: isDone ? '#34d399' : isActive ? '#818cf8' : '#475569',
+                            marginTop: '4px',
+                            textAlign: 'center',
+                            whiteSpace: 'nowrap',
+                            fontWeight: isActive ? 700 : 400,
+                          }}>
+                            {step.label}
+                          </div>
+                        </div>
+                        {idx < PIPELINE_STEPS.length - 1 && (
+                          <div style={{
+                            flex: 1, height: '2px',
+                            background: idx < currentStep ? '#10b981' : '#1e2235',
+                            marginBottom: '18px',
+                            transition: 'background 0.3s',
+                          }} />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {item.status === 'rejected' && item.rejectionReason && (
+                <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid #ef444444', borderRadius: '8px', padding: '0.6rem 1rem', fontSize: '0.82rem', color: '#fca5a5' }}>
+                  ❌ <strong>Rejected:</strong> {item.rejectionReason}
+                </div>
+              )}
 
               {/* Body Content */}
               <div
@@ -379,11 +592,33 @@ export default function AgreementManager() {
                     <strong>🏠 Landlord:</strong> {item.landlordName} ({item.landlordEmail})
                   </div>
                   <div style={{ fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '8px' }}>
-                    <strong>👤 Tenant:</strong> {item.tenantName} ({item.tenantEmail})
+                    <strong>👤 Tenant:</strong> {item.tenantName} ({item.tenantEmail || 'Unclaimed'})
                   </div>
                   <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
                     🗓 Term: {new Date(item.startDate).toLocaleDateString()} ➔ {new Date(item.endDate).toLocaleDateString()} ({item.leaseTermMonths} months)
                   </div>
+                  {item.passkey && (
+                    <div style={{ marginTop: '8px' }}>
+                      <span
+                        title={item.isClaimed ? 'Claimed by tenant' : 'Share this passkey with your tenant'}
+                        style={{
+                          background: item.isClaimed ? 'rgba(16,185,129,0.12)' : 'rgba(168,85,247,0.15)',
+                          color: item.isClaimed ? '#34d399' : '#c084fc',
+                          border: `1px solid ${item.isClaimed ? '#10b98155' : '#a855f755'}`,
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          fontSize: '0.78rem',
+                          fontFamily: 'monospace',
+                          fontWeight: 700,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                        }}
+                      >
+                        🔑 Passkey: {item.passkey} {item.isClaimed ? '✅ Claimed' : '⏳ Awaiting Claim'}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Cryptographic SHA-256 Hash Display Box */}
@@ -449,22 +684,110 @@ export default function AgreementManager() {
                   📄 View / Download PDF
                 </a>
 
-                {/* Regenerate PDF */}
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => handleGeneratePdf(item._id)}
-                  disabled={generatingId === item._id}
-                  style={{
-                    fontSize: '0.85rem',
-                    padding: '6px 14px',
-                    borderRadius: '8px',
-                    background: '#1e2235',
-                    color: '#f8fafc',
-                    border: '1px solid #333a54',
-                  }}
-                >
-                  {generatingId === item._id ? '⏳ Generating...' : '🔄 Regenerate PDF'}
-                </button>
+                {/* Regenerate PDF (Landlord & Admin only) */}
+                {canCreate && item.status !== 'approved' && (
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => handleGeneratePdf(item._id)}
+                    disabled={generatingId === item._id}
+                    style={{
+                      fontSize: '0.85rem',
+                      padding: '6px 14px',
+                      borderRadius: '8px',
+                      background: '#1e2235',
+                      color: '#f8fafc',
+                      border: '1px solid #333a54',
+                    }}
+                  >
+                    {generatingId === item._id ? '⏳ Generating...' : '🔄 Regenerate PDF'}
+                  </button>
+                )}
+
+                {/* ── WORKFLOW ACTION BUTTONS ── */}
+
+                {/* Tenant: Agree button — only for pending_tenant */}
+                {user?.role === 'user' && item.status === 'pending_tenant' && (
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => handleTenantAgree(item._id)}
+                    disabled={actioningId === item._id}
+                    id={`btn-tenant-agree-${item._id}`}
+                    style={{
+                      fontSize: '0.85rem',
+                      padding: '6px 16px',
+                      borderRadius: '8px',
+                      background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                      border: 'none',
+                      color: '#fff',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {actioningId === item._id ? '⏳ Submitting...' : '✅ I Agree to This Agreement'}
+                  </button>
+                )}
+
+                {/* Admin: Approve & Reject buttons — only for pending_admin */}
+                {isAdmin && item.status === 'pending_admin' && (
+                  <>
+                    <button
+                      className="btn btn-primary"
+                      onClick={() => handleAdminApprove(item._id)}
+                      disabled={actioningId === item._id}
+                      id={`btn-admin-approve-${item._id}`}
+                      style={{
+                        fontSize: '0.85rem',
+                        padding: '6px 16px',
+                        borderRadius: '8px',
+                        background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+                        border: 'none',
+                        color: '#fff',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {actioningId === item._id ? '⏳ Approving...' : '🎉 Final Approve'}
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => { setRejectModal({ id: item._id, agreementId: item.agreementId }); setRejectReason(''); }}
+                      id={`btn-admin-reject-${item._id}`}
+                      style={{
+                        fontSize: '0.85rem',
+                        padding: '6px 14px',
+                        borderRadius: '8px',
+                        background: 'rgba(239,68,68,0.15)',
+                        color: '#fca5a5',
+                        border: '1px solid #ef444460',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      ❌ Reject
+                    </button>
+                  </>
+                )}
+
+                {/* Landlord: Reject button — only for pending_tenant stage */}
+                {isLandlord && item.status === 'pending_tenant' && (
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => { setRejectModal({ id: item._id, agreementId: item.agreementId }); setRejectReason(''); }}
+                    id={`btn-landlord-reject-${item._id}`}
+                    style={{
+                      fontSize: '0.85rem',
+                      padding: '6px 14px',
+                      borderRadius: '8px',
+                      background: 'rgba(239,68,68,0.15)',
+                      color: '#fca5a5',
+                      border: '1px solid #ef444460',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    ❌ Cancel / Revoke
+                  </button>
+                )}
 
                 {/* Run SHA-256 Tamper Verification */}
                 <button
@@ -476,14 +799,14 @@ export default function AgreementManager() {
                     fontSize: '0.85rem',
                     padding: '6px 14px',
                     borderRadius: '8px',
-                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    background: 'linear-gradient(135deg, #0f766e 0%, #0d6053 100%)',
                     border: 'none',
                     color: '#fff',
                     fontWeight: 700,
                     cursor: 'pointer',
                   }}
                 >
-                  {verifyingId === item._id ? '⏳ Verifying Hash...' : '🔒 Verify SHA-256 Integrity'}
+                  {verifyingId === item._id ? '⏳ Verifying Hash...' : '🔒 Verify SHA-256'}
                 </button>
               </div>
             </div>
@@ -605,27 +928,32 @@ export default function AgreementManager() {
 
                 {/* Tenant */}
                 <div style={{ background: '#1a1d28', padding: '1rem', borderRadius: '10px', border: '1px solid #272d42' }}>
-                  <h4 style={{ margin: '0 0 0.8rem', color: '#34d399', fontSize: '0.95rem' }}>👤 Tenant Details</h4>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem' }}>
+                    <h4 style={{ margin: 0, color: '#34d399', fontSize: '0.95rem' }}>👤 Tenant Details</h4>
+                    <span style={{ fontSize: '0.7rem', color: '#c084fc', background: 'rgba(168,85,247,0.15)', padding: '2px 6px', borderRadius: '4px' }}>
+                      🔑 Passkey enabled
+                    </span>
+                  </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                     <div>
-                      <label style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>Name</label>
+                      <label style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>Name (Optional)</label>
                       <input
                         type="text"
                         name="tenantName"
                         value={formData.tenantName}
                         onChange={handleInputChange}
-                        required
+                        placeholder="e.g. John Doe (optional)"
                         style={{ width: '100%', background: '#0f1117', border: '1px solid #2d3348', color: '#fff', padding: '0.4rem', borderRadius: '6px', fontSize: '0.85rem' }}
                       />
                     </div>
                     <div>
-                      <label style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>Email</label>
+                      <label style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>Email (Optional)</label>
                       <input
                         type="email"
                         name="tenantEmail"
                         value={formData.tenantEmail}
                         onChange={handleInputChange}
-                        required
+                        placeholder="Optional — tenant claims via passkey"
                         style={{ width: '100%', background: '#0f1117', border: '1px solid #2d3348', color: '#fff', padding: '0.4rem', borderRadius: '6px', fontSize: '0.85rem' }}
                       />
                     </div>
@@ -816,6 +1144,345 @@ export default function AgreementManager() {
                 Close Security Verification
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── REJECT AGREEMENT MODAL ───────────────────────────────── */}
+      {rejectModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.8)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 99999,
+            padding: '1rem',
+          }}
+        >
+          <div
+            style={{
+              background: '#131520',
+              border: '1px solid #ef4444',
+              borderRadius: '16px',
+              maxWidth: '480px',
+              width: '100%',
+              padding: '1.8rem',
+              color: '#f8fafc',
+            }}
+          >
+            <h3 style={{ margin: '0 0 0.5rem', color: '#fca5a5', fontSize: '1.15rem' }}>❌ Reject Agreement</h3>
+            <p style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '1rem' }}>
+              Agreement: <span style={{ color: '#818cf8', fontFamily: 'monospace' }}>{rejectModal.agreementId}</span>
+            </p>
+            <label style={{ fontSize: '0.8rem', color: '#cbd5e1', display: 'block', marginBottom: '6px' }}>Reason for Rejection</label>
+            <textarea
+              rows={3}
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Enter rejection reason (optional)..."
+              style={{
+                width: '100%',
+                background: '#0f1117',
+                border: '1px solid #ef444460',
+                borderRadius: '8px',
+                color: '#fff',
+                padding: '0.6rem',
+                fontSize: '0.9rem',
+                resize: 'vertical',
+                marginBottom: '1.25rem',
+                boxSizing: 'border-box',
+              }}
+            />
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setRejectModal(null)}
+                style={{ padding: '8px 20px', borderRadius: '8px', background: '#1e2235', border: '1px solid #333a54', color: '#f8fafc', cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={handleRejectSubmit}
+                disabled={actioningId === rejectModal.id}
+                style={{ padding: '8px 20px', borderRadius: '8px', background: '#ef4444', border: 'none', color: '#fff', fontWeight: 700, cursor: 'pointer' }}
+              >
+                {actioningId === rejectModal.id ? '⏳ Rejecting...' : '❌ Confirm Rejection'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── PASSKEY RESULT MODAL (Shown to Landlord on Creation) ── */}
+      {passkeyResultModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.85)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 99999,
+            padding: '1rem',
+          }}
+        >
+          <div
+            style={{
+              background: '#131522',
+              border: '1px solid #8b5cf6',
+              borderRadius: '18px',
+              maxWidth: '520px',
+              width: '100%',
+              padding: '2rem',
+              color: '#f8fafc',
+              boxShadow: '0 20px 50px rgba(139,92,246,0.25)',
+              textAlign: 'center',
+            }}
+          >
+            <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>🎉</div>
+            <h3 style={{ margin: '0 0 0.5rem', color: '#f8fafc', fontSize: '1.35rem', fontWeight: 800 }}>
+              Rental Agreement Created!
+            </h3>
+            <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '0 0 1.25rem' }}>
+              Agreement ID: <strong style={{ color: '#818cf8', fontFamily: 'monospace' }}>{passkeyResultModal.agreementId}</strong>
+              {passkeyResultModal.listingTitle && (
+                <span> for <strong style={{ color: '#f1f5f9' }}>{passkeyResultModal.listingTitle}</strong></span>
+              )}
+            </p>
+
+            {/* Passkey Highlight Box */}
+            <div
+              style={{
+                background: 'rgba(139,92,246,0.12)',
+                border: '2px dashed #8b5cf6',
+                borderRadius: '12px',
+                padding: '1.25rem',
+                marginBottom: '1.5rem',
+              }}
+            >
+              <div style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '1.5px', color: '#c084fc', fontWeight: 700, marginBottom: '0.5rem' }}>
+                🔑 Unique Tenant Passkey
+              </div>
+              <div
+                style={{
+                  fontFamily: 'monospace',
+                  fontSize: '2rem',
+                  fontWeight: 800,
+                  letterSpacing: '4px',
+                  color: '#e9d5ff',
+                  userSelect: 'all',
+                  marginBottom: '0.75rem',
+                }}
+              >
+                {passkeyResultModal.passkey}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(passkeyResultModal.passkey);
+                  setCopiedPasskey(true);
+                  setTimeout(() => setCopiedPasskey(false), 2500);
+                }}
+                style={{
+                  background: copiedPasskey ? '#10b981' : '#7c3aed',
+                  color: '#fff',
+                  border: 'none',
+                  padding: '6px 18px',
+                  borderRadius: '6px',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+              >
+                {copiedPasskey ? '✓ Copied to Clipboard!' : '📋 Copy Passkey'}
+              </button>
+            </div>
+
+            {/* Step-by-step instructions */}
+            <div
+              style={{
+                background: '#0e101a',
+                border: '1px solid #1e2235',
+                borderRadius: '10px',
+                padding: '1rem',
+                textAlign: 'left',
+                fontSize: '0.82rem',
+                color: '#cbd5e1',
+                lineHeight: 1.5,
+                marginBottom: '1.5rem',
+              }}
+            >
+              <div style={{ fontWeight: 700, color: '#f8fafc', marginBottom: '0.4rem' }}>
+                Next Steps for You & Your Tenant:
+              </div>
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
+                <span>1.</span>
+                <span>Send this passkey to your tenant via SMS, WhatsApp, or email.</span>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
+                <span>2.</span>
+                <span>Tenant logs into RentEase (any account), visits <strong>Agreements</strong>, and clicks <strong>"🔑 Claim with Passkey"</strong>.</span>
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <span>3.</span>
+                <span>Tenant reviews and agrees to the contract, sending it for final Admin approval.</span>
+              </div>
+            </div>
+
+            <button
+              className="btn btn-primary"
+              onClick={() => setPasskeyResultModal(null)}
+              style={{
+                background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+                border: 'none',
+                padding: '10px 28px',
+                borderRadius: '8px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                width: '100%',
+                fontSize: '0.95rem',
+              }}
+            >
+              Done & View Agreements
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── CLAIM AGREEMENT VIA PASSKEY MODAL (Tenant) ───────────── */}
+      {claimModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.85)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 99999,
+            padding: '1rem',
+          }}
+        >
+          <div
+            style={{
+              background: '#131522',
+              border: '1px solid #a855f7',
+              borderRadius: '18px',
+              maxWidth: '460px',
+              width: '100%',
+              padding: '2rem',
+              color: '#f8fafc',
+              boxShadow: '0 20px 50px rgba(168,85,247,0.2)',
+            }}
+          >
+            <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🔑</div>
+              <h3 style={{ margin: '0 0 0.35rem', color: '#f8fafc', fontSize: '1.25rem', fontWeight: 800 }}>
+                Claim Rental Agreement
+              </h3>
+              <p style={{ fontSize: '0.83rem', color: '#94a3b8', margin: 0 }}>
+                Enter the 8-character passkey provided by your landlord to access and review your agreement.
+              </p>
+            </div>
+
+            {claimError && (
+              <div
+                style={{
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid #ef4444',
+                  color: '#fca5a5',
+                  padding: '0.65rem 1rem',
+                  borderRadius: '8px',
+                  fontSize: '0.83rem',
+                  marginBottom: '1rem',
+                }}
+              >
+                ⚠️ {claimError}
+              </div>
+            )}
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleClaimPasskey();
+              }}
+              style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
+            >
+              <div>
+                <label style={{ fontSize: '0.8rem', color: '#cbd5e1', display: 'block', marginBottom: '6px' }}>
+                  Agreement Passkey
+                </label>
+                <input
+                  type="text"
+                  value={claimInput}
+                  onChange={(e) => setClaimInput(e.target.value.toUpperCase())}
+                  placeholder="e.g. 7K2M-9P4X"
+                  autoFocus
+                  style={{
+                    width: '100%',
+                    background: '#0f111a',
+                    border: '1px solid #a855f760',
+                    borderRadius: '8px',
+                    color: '#e9d5ff',
+                    fontFamily: 'monospace',
+                    fontSize: '1.25rem',
+                    letterSpacing: '2px',
+                    textAlign: 'center',
+                    padding: '0.75rem',
+                    boxSizing: 'border-box',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setClaimModal(false);
+                    setClaimError('');
+                    setClaimInput('');
+                  }}
+                  disabled={claiming}
+                  style={{
+                    padding: '8px 18px',
+                    borderRadius: '8px',
+                    background: '#1e2235',
+                    border: '1px solid #333a54',
+                    color: '#f8fafc',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={claiming || !claimInput.trim()}
+                  style={{
+                    padding: '8px 22px',
+                    borderRadius: '8px',
+                    background: 'linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)',
+                    border: 'none',
+                    color: '#fff',
+                    fontWeight: 700,
+                    cursor: claiming ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {claiming ? '⏳ Claiming...' : '🔑 Claim Agreement'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -37,6 +37,7 @@ exports.createRequest = async (req, res) => {
       tenantName,
       tenantEmail,
       landlordId: targetLandlordId,
+      landlordEmail: targetLandlordEmail || 'alice.rahman@landlord.com',
       listingId: listingId || null,
       listingTitle: targetListingTitle,
       category,
@@ -50,7 +51,7 @@ exports.createRequest = async (req, res) => {
           status: 'Submitted',
           updatedAt: new Date(),
           updatedBy: tenantName,
-          note: 'Maintenance ticket created by tenant.',
+          note: 'Maintenance ticket created by tenant (preliminary state awaiting landlord review).',
         },
       ],
     });

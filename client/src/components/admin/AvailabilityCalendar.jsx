@@ -6,7 +6,7 @@ import { useState } from 'react';
  * A custom visual grid calendar for the current and selected months.
  * Landlords can click individual dates to toggle them between Available and Booked.
  */
-export default function AvailabilityCalendar({ initialBookedDates, onSave, onCancel }) {
+export default function AvailabilityCalendar({ initialBookedDates, onSave, onCancel, readOnly = false }) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [bookedDates, setBookedDates] = useState(new Set(initialBookedDates || []));
 
@@ -24,8 +24,9 @@ export default function AvailabilityCalendar({ initialBookedDates, onSave, onCan
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const startDay = new Date(year, month, 1).getDay();
 
-  // Toggle booking status of a day
+  // Toggle booking status of a day (landlord only, not readOnly)
   const handleDateClick = (day) => {
+    if (readOnly) return;
     const dateStr = formatDateStr(year, month, day);
     const updated = new Set(bookedDates);
     if (updated.has(dateStr)) {
@@ -72,7 +73,12 @@ export default function AvailabilityCalendar({ initialBookedDates, onSave, onCan
         type="button"
         onClick={() => handleDateClick(day)}
         className={`calendar-day-btn ${isBooked ? 'booked' : 'available'}`}
-        title={isBooked ? 'Booked - Click to make available' : 'Available - Click to mark booked'}
+        style={{ cursor: readOnly ? 'default' : 'pointer' }}
+        title={
+          isBooked
+            ? readOnly ? 'This date is booked / unavailable' : 'Booked - Click to make available'
+            : readOnly ? 'This date is available' : 'Available - Click to mark booked'
+        }
       >
         <span className="day-number">{day}</span>
         <span className="status-indicator"></span>
@@ -105,18 +111,28 @@ export default function AvailabilityCalendar({ initialBookedDates, onSave, onCan
         </div>
         <div className="legend-item">
           <span className="legend-dot booked"></span>
-          <span>Booked / Blocked</span>
+          <span>{readOnly ? 'Booked / Unavailable' : 'Booked / Blocked'}</span>
         </div>
       </div>
 
-      <div className="calendar-actions">
-        <button type="button" className="btn btn-secondary" onClick={onCancel}>
-          Cancel
-        </button>
-        <button type="button" className="btn btn-primary" onClick={handleSave}>
-          Save Availability
-        </button>
-      </div>
+      {!readOnly && (
+        <div className="calendar-actions">
+          <button type="button" className="btn btn-secondary" onClick={onCancel}>
+            Cancel
+          </button>
+          <button type="button" className="btn btn-primary" onClick={handleSave}>
+            Save Availability
+          </button>
+        </div>
+      )}
+
+      {readOnly && (
+        <div className="calendar-actions">
+          <button type="button" className="btn btn-secondary" onClick={onCancel}>
+            Close
+          </button>
+        </div>
+      )}
     </div>
   );
 }

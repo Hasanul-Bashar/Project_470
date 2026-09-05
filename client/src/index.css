@@ -411,7 +411,13 @@ tbody td { padding: .95rem 1.2rem; color: var(--t1); vertical-align: middle; }
 }
 .form-input::placeholder, .form-textarea::placeholder { color: var(--t3); }
 .form-textarea { resize: vertical; min-height: 110px; }
-.form-select option { background: var(--bg-elevated); }
+select option,
+.form-input option,
+.form-select option,
+option {
+  color: #000000 !important;
+  background-color: #ffffff !important;
+}
 
 /* ── Filter Tabs ─────────────────────────────────────────────── */
 .filter-tabs {
