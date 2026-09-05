@@ -4,7 +4,7 @@ const NotificationSchema = new mongoose.Schema(
   {
     // Who this notification is for
     recipientId:    { type: String, required: true, index: true },
-    recipientEmail: { type: String, required: true },
+    recipientEmail: { type: String, default: '' },
     recipientRole:  { type: String, enum: ['user', 'landlord', 'admin'], default: 'user' },
 
     // Notification content
@@ -21,6 +21,7 @@ const NotificationSchema = new mongoose.Schema(
         'booking_rejected',
         'booking_request',
         'complaint_updated',
+        'chat_message',
         'system',
       ],
       required: true,

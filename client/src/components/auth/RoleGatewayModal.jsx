@@ -72,6 +72,25 @@ export default function RoleGatewayModal() {
     }
   };
 
+  const handleQuickDemoLogin = async (demoRole, demoEmail, demoPassword) => {
+    setActiveRole(demoRole);
+    setEmail(demoEmail);
+    setPassword(demoPassword);
+    setErrorMsg('');
+    setInfoMsg('');
+    setLoading(true);
+
+    try {
+      await login({ email: demoEmail, password: demoPassword, role: demoRole });
+      setLoading(false);
+      resetFormAll();
+    } catch (err) {
+      setLoading(false);
+      const data = err.response?.data;
+      setErrorMsg(data?.message || 'Quick demo login failed. Please verify credentials.');
+    }
+  };
+
   const handleSignupSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
@@ -262,11 +281,9 @@ export default function RoleGatewayModal() {
                     type="button"
                     className="btn btn-sm btn-outline"
                     style={{ fontSize: '0.75rem', padding: '4px 8px' }}
-                    onClick={() => {
-                      setActiveRole('user');
-                      setEmail('demo.user@rentease.com');
-                      setPassword('User1234');
-                    }}
+                    onClick={() => handleQuickDemoLogin('user', 'demo.user@rentease.com', 'User1234')}
+                    disabled={loading}
+                    title="1-Click Login as Demo Tenant"
                   >
                     👤 Tenant Demo
                   </button>
@@ -274,11 +291,9 @@ export default function RoleGatewayModal() {
                     type="button"
                     className="btn btn-sm btn-outline"
                     style={{ fontSize: '0.75rem', padding: '4px 8px' }}
-                    onClick={() => {
-                      setActiveRole('landlord');
-                      setEmail('alice.rahman@landlord.com');
-                      setPassword('Admin1234');
-                    }}
+                    onClick={() => handleQuickDemoLogin('landlord', 'alice.rahman@landlord.com', 'Admin1234')}
+                    disabled={loading}
+                    title="1-Click Login as Demo Landlord"
                   >
                     🏠 Landlord Demo
                   </button>
@@ -286,11 +301,9 @@ export default function RoleGatewayModal() {
                     type="button"
                     className="btn btn-sm btn-outline"
                     style={{ fontSize: '0.75rem', padding: '4px 8px' }}
-                    onClick={() => {
-                      setActiveRole('admin');
-                      setEmail('admin@rentease.com');
-                      setPassword('Admin1234');
-                    }}
+                    onClick={() => handleQuickDemoLogin('admin', 'admin@rentease.com', 'Admin1234')}
+                    disabled={loading}
+                    title="1-Click Login as Demo Admin"
                   >
                     🛡 Admin Demo
                   </button>

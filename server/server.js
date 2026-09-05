@@ -21,6 +21,7 @@ const maintenanceRoutes  = require('./routes/maintenanceRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const agreementRoutes    = require('./routes/agreementRoutes');
 const stripeRoutes       = require('./routes/stripeRoutes');
+const trustRoutes        = require('./routes/trustRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -84,6 +85,7 @@ app.use('/api/maintenance',   maintenanceRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/agreements',    agreementRoutes);
 app.use('/api/stripe',        stripeRoutes);
+app.use('/api/trust',         trustRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {

@@ -23,6 +23,7 @@ exports.handleChat = async (req, res) => {
 
     return res.json({
       success: true,
+      intent: result.intent,
       reply: result.reply,
       filters: result.filters,
       listings: result.listings,

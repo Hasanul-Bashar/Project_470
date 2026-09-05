@@ -4,6 +4,7 @@ import StatCards from '../components/admin/StatCards';
 import LandlordTable from '../components/admin/LandlordTable';
 import ListingQueue from '../components/admin/ListingQueue';
 import BookingQueue from '../components/admin/BookingQueue';
+import TrustAppealsQueue from '../components/admin/TrustAppealsQueue';
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -51,6 +52,10 @@ export default function AdminDashboard() {
       {/* ── 4. Listing Approval Queue ─────────────────────────── */}
       <h2 className="section-title">Listing Approval Queue</h2>
       <ListingQueue onAction={refreshStats} />
+
+      {/* ── 5. Tenant Trust & Flag Appeals Queue ────────────────── */}
+      <h2 className="section-title">🛡️ Tenant Trust & Flag Appeals Queue</h2>
+      <TrustAppealsQueue onAction={refreshStats} />
     </div>
   );
 }

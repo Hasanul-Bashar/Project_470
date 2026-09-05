@@ -77,7 +77,9 @@ export default function AiAssistantWidget({
       const res = await sendAssistantChat(query, history, currentFilters);
       const data = res.data;
 
-      if (data.filters) {
+      if (data.intent === 'OUT_OF_SCOPE' || data.intent === 'GREETING') {
+        setCurrentFilters({});
+      } else if (data.filters) {
         setCurrentFilters(data.filters);
       }
       if (data.provider) {
@@ -176,8 +178,11 @@ export default function AiAssistantWidget({
 
   if (!isOpen) return null;
 
-  const hasActiveFilters = Object.values(currentFilters).some(
-    (val) => val !== null && val !== undefined && (Array.isArray(val) ? val.length > 0 : true)
+  const hasActiveFilters = Boolean(
+    currentFilters.location ||
+    currentFilters.maxPrice ||
+    currentFilters.bedrooms ||
+    (currentFilters.amenities && currentFilters.amenities.length > 0)
   );
 
   return (

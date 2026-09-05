@@ -12,6 +12,9 @@ import ImageUpload from '../components/ImageUpload';
 import PolygonMap from '../components/PolygonMap';
 import VirtualTourViewer from '../components/VirtualTourViewer';
 import { getImageUrl, PLACEHOLDER_IMAGE } from '../utils/imageUtils';
+import LandlordChatDrawer from '../components/chat/LandlordChatDrawer';
+import FlagTenantModal from '../components/trust/FlagTenantModal';
+import { getTrustScore } from '../services/trustApi';
 
 export default function LandlordListings() {
   const { user } = useAuth();
@@ -39,6 +42,10 @@ export default function LandlordListings() {
   const [activeCalendarListing, setActiveCalendarListing] = useState(null);
   const [tourModalListing, setTourModalListing] = useState(null);
   const [reviewingBooking, setReviewingBooking] = useState(null); // Approved booking being reviewed
+  const [isChatDrawerOpen, setIsChatDrawerOpen] = useState(false);
+  const [selectedChatListing, setSelectedChatListing] = useState(null);
+  const [flaggingTenantData, setFlaggingTenantData] = useState(null);
+  const [tenantTrustScores, setTenantTrustScores] = useState({});
 
   // Add listing rich form state
   const [title, setTitle] = useState('');
@@ -103,10 +110,27 @@ export default function LandlordListings() {
 
   const [tenantMaintenance, setTenantMaintenance] = useState([]);
 
+  const fetchTenantTrustScores = async (bookings) => {
+    const tenantIds = [...new Set(bookings.map((b) => b.tenantId).filter(Boolean))];
+    const scoresMap = {};
+    await Promise.all(
+      tenantIds.map(async (tid) => {
+        try {
+          const res = await getTrustScore(tid);
+          scoresMap[tid] = res.data;
+        } catch (e) {
+          // ignore error if profile doesn't exist yet
+        }
+      })
+    );
+    setTenantTrustScores((prev) => ({ ...prev, ...scoresMap }));
+  };
+
   const fetchTenantBookings = async () => {
     try {
       const res = await getBookings();
       setTenantBookings(res.data);
+      fetchTenantTrustScores(res.data);
     } catch (err) {
       console.error('Error fetching tenant bookings:', err);
     }
@@ -326,6 +350,26 @@ export default function LandlordListings() {
           >
             📊 Analytics
           </button>
+          <button
+            className="btn btn-secondary"
+            onClick={() => {
+              setSelectedChatListing(null);
+              setIsChatDrawerOpen(true);
+            }}
+            id="btn-open-landlord-chats"
+            title="Tenant inquiries and chat messages"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              border: '1px solid rgba(139, 92, 246, 0.45)',
+              background: 'rgba(139, 92, 246, 0.12)',
+              color: '#c084fc',
+              fontWeight: 600,
+            }}
+          >
+            💬 Tenant Inquiries / Chats
+          </button>
           <button className="btn btn-primary" onClick={() => setIsAddModalOpen(true)}>
             ➕ Add Property
           </button>
@@ -462,6 +506,34 @@ export default function LandlordListings() {
                       >
                         Tenant: {b.tenantName} ({b.tenantEmail})
                       </span>
+                      {tenantTrustScores[b.tenantId] && (
+                        <span
+                          style={{
+                            fontSize: '0.72rem',
+                            background: tenantTrustScores[b.tenantId].isBlacklisted
+                              ? 'rgba(239, 68, 68, 0.2)'
+                              : tenantTrustScores[b.tenantId].score >= 80
+                              ? 'rgba(16, 185, 129, 0.2)'
+                              : tenantTrustScores[b.tenantId].score >= 50
+                              ? 'rgba(234, 179, 8, 0.2)'
+                              : 'rgba(239, 68, 68, 0.2)',
+                            color: tenantTrustScores[b.tenantId].isBlacklisted
+                              ? '#f87171'
+                              : tenantTrustScores[b.tenantId].score >= 80
+                              ? '#34d399'
+                              : tenantTrustScores[b.tenantId].score >= 50
+                              ? '#facc15'
+                              : '#f87171',
+                            border: '1px solid currentColor',
+                            padding: '0.15rem 0.55rem',
+                            borderRadius: '12px',
+                            fontWeight: 700,
+                          }}
+                        >
+                          🛡️ Trust: {tenantTrustScores[b.tenantId].score}/100 ({tenantTrustScores[b.tenantId].scoreBand})
+                          {tenantTrustScores[b.tenantId].isBlacklisted && ' 🚫 BLACKLISTED'}
+                        </span>
+                      )}
                     </div>
                     <p style={{ margin: 0, fontSize: '0.84rem', color: '#94a3b8' }}>
                       📍 {b.listingLocation} | 📅 Requested Dates: <strong style={{ color: '#38bdf8' }}>{b.dates?.join(', ')}</strong>
@@ -577,6 +649,56 @@ export default function LandlordListings() {
                         )}
                       </div>
                     )}
+
+                    {/* Chat & Flag Tenant Buttons */}
+                    <button
+                      className="btn btn-sm btn-secondary"
+                      style={{
+                        fontSize: '0.78rem',
+                        padding: '0.42rem 0.85rem',
+                        borderRadius: '16px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                      }}
+                      onClick={() => {
+                        setSelectedChatListing({ _id: b.listingId, title: b.listingTitle });
+                        setIsChatDrawerOpen(true);
+                      }}
+                      title="Chat with this tenant about this property"
+                    >
+                      💬 Chat
+                    </button>
+
+                    <button
+                      className="btn btn-sm"
+                      style={{
+                        background: 'rgba(239, 68, 68, 0.15)',
+                        color: '#f87171',
+                        border: '1px solid rgba(239, 68, 68, 0.35)',
+                        padding: '0.42rem 0.85rem',
+                        borderRadius: '16px',
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                      }}
+                      onClick={() =>
+                        setFlaggingTenantData({
+                          tenantId: b.tenantId,
+                          tenantName: b.tenantName,
+                          tenantEmail: b.tenantEmail,
+                          bookingId: b._id,
+                          listingId: b.listingId,
+                          listingTitle: b.listingTitle,
+                        })
+                      }
+                      title="Report / Flag tenant violations or non-payment"
+                    >
+                      🚩 Flag Tenant
+                    </button>
                   </div>
 
                   {/* Expandable Tenant Review Form / Section */}
@@ -993,6 +1115,24 @@ export default function LandlordListings() {
                 >
                   🗓 Manage Availability Calendar
                 </button>
+                <button
+                  className="btn btn-secondary w-full"
+                  onClick={() => {
+                    setSelectedChatListing(listing);
+                    setIsChatDrawerOpen(true);
+                  }}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.4rem',
+                    border: '1px solid rgba(139, 92, 246, 0.3)',
+                    color: '#c084fc',
+                  }}
+                >
+                  💬 Tenant Inquiries for this Listing
+                </button>
               </div>
             </div>
           ))}
@@ -1325,6 +1465,49 @@ export default function LandlordListings() {
           tourUrl={tourModalListing.virtualTourUrl}
           tourType={tourModalListing.virtualTourType}
           title={`${tourModalListing.title} — Virtual Tour`}
+        />
+      )}
+
+      {/* Landlord Inquiries & Chat Drawer */}
+      {isChatDrawerOpen && (
+        <LandlordChatDrawer
+          isOpen={isChatDrawerOpen}
+          onClose={() => setIsChatDrawerOpen(false)}
+          preselectedListing={selectedChatListing}
+        />
+      )}
+
+      {/* Flag Tenant Modal */}
+      {flaggingTenantData && (
+        <FlagTenantModal
+          isOpen={Boolean(flaggingTenantData)}
+          onClose={() => setFlaggingTenantData(null)}
+          tenantId={flaggingTenantData?.tenantId}
+          tenantName={flaggingTenantData?.tenantName}
+          listingId={flaggingTenantData?.listingId}
+          listingTitle={flaggingTenantData?.listingTitle}
+          onSuccess={() => {
+            showToast('Tenant flagged and trust score updated.');
+            if (flaggingTenantData?.tenantId) {
+              getTrustScore(flaggingTenantData.tenantId).then((res) => {
+                setTenantTrustScores((prev) => ({
+                  ...prev,
+                  [flaggingTenantData.tenantId]: res.data?.profile || res.data,
+                }));
+              });
+            }
+          }}
+          onFlagged={() => {
+            showToast('Tenant flagged and trust score updated.');
+            if (flaggingTenantData?.tenantId) {
+              getTrustScore(flaggingTenantData.tenantId).then((res) => {
+                setTenantTrustScores((prev) => ({
+                  ...prev,
+                  [flaggingTenantData.tenantId]: res.data?.profile || res.data,
+                }));
+              });
+            }
+          }}
         />
       )}
 

@@ -17,6 +17,7 @@ import { getImageUrl, PLACEHOLDER_IMAGE } from '../utils/imageUtils';
 import AiAssistantWidget from '../components/assistant/AiAssistantWidget';
 import VirtualTourViewer from '../components/VirtualTourViewer';
 import BookingCalendarPicker from '../components/BookingCalendarPicker';
+import TenantTrustModal from '../components/trust/TenantTrustModal';
 
 export default function UserDashboard() {
   const { user } = useAuth();
@@ -64,6 +65,9 @@ export default function UserDashboard() {
 
   // Virtual Tour modal state
   const [tourListing, setTourListing] = useState(null);
+
+  // Trust Score modal state
+  const [showTrustModal, setShowTrustModal] = useState(false);
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -247,6 +251,22 @@ export default function UserDashboard() {
             title="Report & track maintenance issues"
           >
             🛠️ Maintenance
+          </button>
+          <button
+            className="btn btn-secondary"
+            onClick={() => setShowTrustModal(true)}
+            id="btn-user-trust-score"
+            title="View your verified trust score, score band, and dispute flags"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              border: '1px solid rgba(16, 185, 129, 0.4)',
+              color: '#34d399',
+              background: 'rgba(16, 185, 129, 0.1)',
+            }}
+          >
+            ⭐ My Trust Score
           </button>
         </div>
       </div>
@@ -864,6 +884,14 @@ export default function UserDashboard() {
         <ChatModal
           listing={chatListing}
           onClose={() => setChatListing(null)}
+        />
+      )}
+
+      {/* ── Tenant Trust Score Modal ─────────────────────────────── */}
+      {showTrustModal && (
+        <TenantTrustModal
+          tenantId={user?.id}
+          onClose={() => setShowTrustModal(false)}
         />
       )}
 

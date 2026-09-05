@@ -9,8 +9,9 @@ export default function Header() {
   const isAdmin = user?.role === 'admin';
 
   // Greeting Logic based on user & initial signup vs returning login
-  const displayName = user?.firstName || user?.name || 'User';
-  const greeting = user?.isFirstLogin ? `Hi, ${displayName}!` : `Welcome back, ${displayName}!`;
+  const displayName = user?.firstName || (user?.name ? user.name.split(' ')[0] : 'User');
+  const greeting = user?.isFirstLogin ? `Hi, ${displayName}!` : `Welcome, ${displayName}!`;
+  const fullGreeting = user?.name ? `Signed in as ${user.name} (${user.email || user.role})` : greeting;
 
   return (
     <header className="header">
