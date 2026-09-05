@@ -93,6 +93,23 @@ exports.createCheckoutSession = async (req, res) => {
         sourceType: 'RentPayment',
       });
 
+      // Notify admin
+      await createNotification({
+        recipientId: 'admin',
+        recipientEmail: process.env.ADMIN_EMAIL || 'admin@rentease.com',
+        recipientRole: 'admin',
+        type: isPaid ? 'rent_paid' : 'rent_partial',
+        title: isPaid
+          ? `💰 Rent Paid via Stripe: ${payment.listingTitle}`
+          : `💳 Partial Rent via Stripe: ${payment.listingTitle}`,
+        message: isPaid
+          ? `Tenant "${payment.tenantName}" fully paid rent of ৳${payment.amount.toLocaleString()} for ${payment.month} at "${payment.listingTitle}".`
+          : `Tenant "${payment.tenantName}" made a partial payment of ৳${payAmount.toLocaleString()} for ${payment.month} at "${payment.listingTitle}". Remaining: ৳${(payment.amount - newTotal).toLocaleString()}.`,
+        link: '/rent-tracking',
+        sourceId: payment._id.toString(),
+        sourceType: 'RentPayment',
+      });
+
       return res.json({
         url: `${origin}/rent-tracking?payment=success&demo=true`,
         sessionId: demoSessionId,
@@ -254,6 +271,23 @@ exports.handleWebhook = async (req, res) => {
         message: isPaid
           ? `${payment.tenantName} has fully paid $${payment.amount.toLocaleString()} for ${payment.month} at ${payment.listingTitle}.`
           : `${payment.tenantName} paid $${paidAmount.toLocaleString()}. Remaining: $${(payment.amount - newTotal).toLocaleString()} for ${payment.month}.`,
+        link: '/rent-tracking',
+        sourceId: payment._id.toString(),
+        sourceType: 'RentPayment',
+      });
+
+      // Also notify admin
+      await createNotification({
+        recipientId: 'admin',
+        recipientEmail: process.env.ADMIN_EMAIL || 'admin@rentease.com',
+        recipientRole: 'admin',
+        type: isPaid ? 'rent_paid' : 'rent_partial',
+        title: isPaid
+          ? `💰 Rent Collected via Stripe: ${payment.listingTitle}`
+          : `💳 Partial Rent via Stripe: ${payment.listingTitle}`,
+        message: isPaid
+          ? `Tenant "${payment.tenantName}" fully paid ৳${payment.amount.toLocaleString()} for ${payment.month} at "${payment.listingTitle}" via Stripe.`
+          : `Tenant "${payment.tenantName}" paid ৳${paidAmount.toLocaleString()} via Stripe. Remaining balance: ৳${(payment.amount - newTotal).toLocaleString()} for ${payment.month}.`,
         link: '/rent-tracking',
         sourceId: payment._id.toString(),
         sourceType: 'RentPayment',

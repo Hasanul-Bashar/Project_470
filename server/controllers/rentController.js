@@ -11,9 +11,16 @@ const syncOverdueStatuses = async () => {
   );
 };
 
-// ── 1. Create a single rent payment record ───────────────────
+// ── 1. Create a single rent payment record (LANDLORD ONLY) ─────
 exports.createRentPayment = async (req, res) => {
   try {
+    // POWER CHECK: Only landlord can create/log rent records
+    if (req.user?.role !== 'landlord') {
+      return res.status(403).json({
+        message: 'Forbidden: Only landlords have the power to create or log rent records.',
+      });
+    }
+
     const {
       tenantId,
       tenantName,
@@ -78,7 +85,7 @@ exports.createRentPayment = async (req, res) => {
 
     await newPayment.save();
 
-    // ── Notify tenant of new rent due/overdue ────────────────
+    // ── Notify tenant of new rent record ──────────────────────
     const isOD = initialStatus === 'overdue';
     await createNotification({
       recipientId: tenantId || tenantEmail,
@@ -89,6 +96,19 @@ exports.createRentPayment = async (req, res) => {
       message: isOD
         ? `Your rent of ৳${Number(amount).toLocaleString()} for ${month} at ${listingTitle} is OVERDUE. Please pay immediately.`
         : `Your rent of ৳${Number(amount).toLocaleString()} for ${month} at ${listingTitle} is due on ${new Date(dueDate).toLocaleDateString()}.`,
+      link: '/rent-tracking',
+      sourceId: newPayment._id.toString(),
+      sourceType: 'RentPayment',
+    });
+
+    // ── Notify admin that landlord logged a rent record ───────
+    await createNotification({
+      recipientId: 'admin',
+      recipientEmail: process.env.ADMIN_EMAIL || 'admin@rentease.com',
+      recipientRole: 'admin',
+      type: isOD ? 'rent_overdue' : 'rent_due',
+      title: isOD ? `🚨 Overdue Rent Logged: ${listingTitle}` : `📋 Rent Record Logged: ${listingTitle}`,
+      message: `Landlord "${landlordName}" created a rent record for tenant "${tenantName || tenantEmail}" (${month}) at "${listingTitle}". Amount: ৳${finalAmount.toLocaleString()}, Status: ${initialStatus.toUpperCase()}.`,
       link: '/rent-tracking',
       sourceId: newPayment._id.toString(),
       sourceType: 'RentPayment',
@@ -115,7 +135,10 @@ exports.getRentPayments = async (req, res) => {
 
     let filter = {};
 
-    // Role based authorization filter
+    // Role based authorization filter:
+    // Landlord sees their own properties' rent records
+    // User sees only their own rental payment records
+    // Admin sees all records (read-only audit)
     if (role === 'landlord') {
       filter.landlordId = id;
     } else if (role === 'user') {
@@ -178,9 +201,16 @@ exports.getRentPayments = async (req, res) => {
   }
 };
 
-// ── 3. Update rent status & details manually ──────────────────
+// ── 3. Update rent status & details (LANDLORD ONLY) ───────────
 exports.updateRentStatus = async (req, res) => {
   try {
+    // POWER CHECK: Only landlord has the power to edit, mark paid, mark due, flag overdue
+    if (req.user?.role !== 'landlord') {
+      return res.status(403).json({
+        message: 'Forbidden: Only landlords have the power to perform rent actions (editing, marking paid/due/overdue).',
+      });
+    }
+
     const { id } = req.params;
     const { status, paidDate, paymentMethod, notes, amount, dueDate, bookedDays, dailyRate } = req.body;
 
@@ -188,6 +218,8 @@ exports.updateRentStatus = async (req, res) => {
     if (!payment) {
       return res.status(404).json({ message: 'Rent payment record not found' });
     }
+
+    const previousStatus = payment.status;
 
     if (status) {
       payment.status = status;
@@ -222,6 +254,8 @@ exports.updateRentStatus = async (req, res) => {
 
     await payment.save();
 
+    const landlordDisplayName = req.user?.name || req.user?.email || 'Landlord';
+
     // ── Notify tenant of status change ───────────────────────
     if (status) {
       const notifType = status === 'paid' ? 'rent_paid' : status === 'overdue' ? 'rent_overdue' : 'rent_due';
@@ -231,9 +265,9 @@ exports.updateRentStatus = async (req, res) => {
         ? `🚨 Rent Overdue — ${payment.listingTitle}`
         : `💳 Rent Due — ${payment.listingTitle}`;
       const notifMsg = status === 'paid'
-        ? `Your rent of ৳${payment.amount.toLocaleString()} for ${payment.month} has been marked as paid. Thank you!`
+        ? `Your rent of ৳${payment.amount.toLocaleString()} for ${payment.month} has been marked as paid by landlord. Thank you!`
         : status === 'overdue'
-        ? `Your rent of ৳${payment.amount.toLocaleString()} for ${payment.month} is now overdue. Please pay immediately.`
+        ? `Your rent of ৳${payment.amount.toLocaleString()} for ${payment.month} has been flagged as overdue by landlord. Please pay immediately.`
         : `Your rent of ৳${payment.amount.toLocaleString()} for ${payment.month} is due on ${new Date(payment.dueDate).toLocaleDateString()}.`;
 
       await createNotification({
@@ -249,6 +283,29 @@ exports.updateRentStatus = async (req, res) => {
       });
     }
 
+    // ── Notify ADMIN of landlord's rent action ────────────────
+    const adminActionTitle = status === 'paid'
+      ? `💰 Rent Marked Paid: ${payment.listingTitle}`
+      : status === 'overdue'
+      ? `🚨 Rent Flagged Overdue: ${payment.listingTitle}`
+      : status === 'due'
+      ? `⏳ Rent Marked Due: ${payment.listingTitle}`
+      : `✏️ Rent Record Edited: ${payment.listingTitle}`;
+
+    const adminActionMsg = `Landlord "${landlordDisplayName}" updated rent record for tenant "${payment.tenantName}" (${payment.month}) at "${payment.listingTitle}". Status: ${payment.status.toUpperCase()} (was ${previousStatus.toUpperCase()}), Amount: ৳${payment.amount.toLocaleString()}.`;
+
+    await createNotification({
+      recipientId: 'admin',
+      recipientEmail: process.env.ADMIN_EMAIL || 'admin@rentease.com',
+      recipientRole: 'admin',
+      type: status === 'paid' ? 'rent_paid' : status === 'overdue' ? 'rent_overdue' : 'rent_due',
+      title: adminActionTitle,
+      message: adminActionMsg,
+      link: '/rent-tracking',
+      sourceId: payment._id.toString(),
+      sourceType: 'RentPayment',
+    });
+
     res.json({
       message: `Rent status updated to '${payment.status}'`,
       payment,
@@ -259,14 +316,39 @@ exports.updateRentStatus = async (req, res) => {
   }
 };
 
-// ── 4. Delete rent record ─────────────────────────────────────
+// ── 4. Delete rent record (LANDLORD ONLY) ──────────────────────
 exports.deleteRentPayment = async (req, res) => {
   try {
+    // POWER CHECK: Only landlord can delete rent records
+    if (req.user?.role !== 'landlord') {
+      return res.status(403).json({
+        message: 'Forbidden: Only landlords have the power to delete rent payment records.',
+      });
+    }
+
     const { id } = req.params;
-    const payment = await RentPayment.findByIdAndDelete(id);
+    const payment = await RentPayment.findById(id);
     if (!payment) {
       return res.status(404).json({ message: 'Rent payment record not found' });
     }
+
+    await RentPayment.findByIdAndDelete(id);
+
+    const landlordDisplayName = req.user?.name || req.user?.email || 'Landlord';
+
+    // ── Notify admin of deleted rent record ───────────────────
+    await createNotification({
+      recipientId: 'admin',
+      recipientEmail: process.env.ADMIN_EMAIL || 'admin@rentease.com',
+      recipientRole: 'admin',
+      type: 'system',
+      title: `🗑 Rent Record Deleted: ${payment.listingTitle}`,
+      message: `Landlord "${landlordDisplayName}" deleted the rent record for tenant "${payment.tenantName}" (${payment.month}) at "${payment.listingTitle}". Amount was ৳${payment.amount.toLocaleString()}.`,
+      link: '/rent-tracking',
+      sourceId: payment._id.toString(),
+      sourceType: 'RentPayment',
+    });
+
     res.json({ message: 'Rent payment record deleted successfully', id });
   } catch (err) {
     console.error('❌ deleteRentPayment error:', err);
@@ -274,10 +356,18 @@ exports.deleteRentPayment = async (req, res) => {
   }
 };
 
-// ── 5. Bulk generate rent calculated based on booked days ──────
+// ── 5. Bulk generate rent (LANDLORD ONLY) ──────────────────────
 exports.bulkGenerateRent = async (req, res) => {
   try {
+    // POWER CHECK: Only landlord can bulk generate rent
+    if (req.user?.role !== 'landlord') {
+      return res.status(403).json({
+        message: 'Forbidden: Only landlords have the power to generate rent records.',
+      });
+    }
+
     const landlordId = req.user?.id || 'demo-landlord';
+    const landlordDisplayName = req.user?.name || req.user?.email || 'Landlord';
     const { month, defaultDueDate } = req.body;
 
     if (!month) {
@@ -317,12 +407,9 @@ exports.bulkGenerateRent = async (req, res) => {
       });
 
       if (!existing) {
-        // Calculate booked days for this specific month (e.g. "2026-09")
-        // If booking.dates has entries for this month, count them; otherwise total booked dates
         const monthDates = (booking.dates || []).filter((d) => d.startsWith(month));
         const bookedDaysCount = monthDates.length > 0 ? monthDates.length : (booking.dates?.length || 1);
 
-        // Calculate daily rate based on listing price or standard default
         const listingMonthlyPrice = booking.listingId?.price || 30000;
         const dailyRate = Math.round(listingMonthlyPrice / daysInMonth);
         const calculatedAmount = Math.round(dailyRate * bookedDaysCount);
@@ -333,7 +420,7 @@ exports.bulkGenerateRent = async (req, res) => {
           tenantName: booking.tenantName,
           tenantEmail: booking.tenantEmail,
           landlordId,
-          landlordName: req.user?.name || 'Landlord',
+          landlordName: landlordDisplayName,
           listingId: booking.listingId?._id || booking.listingId,
           listingTitle: booking.listingTitle,
           month,
@@ -349,6 +436,20 @@ exports.bulkGenerateRent = async (req, res) => {
         await newRecord.save();
         createdRecords.push(newRecord);
       }
+    }
+
+    // ── Notify admin of bulk generation ───────────────────────
+    if (createdRecords.length > 0) {
+      await createNotification({
+        recipientId: 'admin',
+        recipientEmail: process.env.ADMIN_EMAIL || 'admin@rentease.com',
+        recipientRole: 'admin',
+        type: 'rent_due',
+        title: `⚡ Bulk Rent Generated (${month})`,
+        message: `Landlord "${landlordDisplayName}" bulk-generated ${createdRecords.length} rent record(s) for ${month}.`,
+        link: '/rent-tracking',
+        sourceType: 'RentPayment',
+      });
     }
 
     res.json({

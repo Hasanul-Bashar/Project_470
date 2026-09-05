@@ -14,7 +14,9 @@ export default function RentTracker() {
   const { user } = useAuth();
   const isLandlord = user?.role === 'landlord';
   const isAdmin = user?.role === 'admin';
-  const canManage = isLandlord || isAdmin;
+  const isTenant = user?.role === 'user';
+  // ONLY landlord has the power to manage rent actions (edit, mark paid/due/overdue, delete, create)
+  const canManage = isLandlord;
 
   const [payments, setPayments] = useState([]);
   const [summary, setSummary] = useState({
@@ -269,6 +271,50 @@ export default function RentTracker() {
       {/* Flash Messages */}
       {successMsg && <div className="alert alert-success">✅ {successMsg}</div>}
       {error && <div className="alert alert-danger">⚠️ {error}</div>}
+
+      {/* Admin Read-Only Notification Banner */}
+      {isAdmin && (
+        <div
+          style={{
+            background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(59, 130, 246, 0.08))',
+            border: '1px solid rgba(139, 92, 246, 0.3)',
+            borderLeft: '4px solid #8b5cf6',
+            borderRadius: '12px',
+            padding: '0.9rem 1.25rem',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '0.75rem',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <span style={{ fontSize: '1.4rem' }}>🛡️</span>
+            <div>
+              <div style={{ fontWeight: 700, color: '#f8fafc', fontSize: '0.92rem' }}>
+                Admin Monitoring Mode (Read-Only)
+              </div>
+              <div style={{ color: '#94a3b8', fontSize: '0.82rem', marginTop: '2px' }}>
+                Rent actions (editing amounts/dates, marking paid, marking due, flagging overdue, deleting) are strictly reserved for <strong>Landlords</strong> only. As Admin, you will receive notifications for all rent updates.
+              </div>
+            </div>
+          </div>
+          <span
+            style={{
+              fontSize: '0.75rem',
+              background: 'rgba(139, 92, 246, 0.2)',
+              color: '#c4b5fd',
+              border: '1px solid rgba(139, 92, 246, 0.4)',
+              padding: '0.25rem 0.65rem',
+              borderRadius: '12px',
+              fontWeight: 600,
+            }}
+          >
+            🔔 Admin Notifications Active
+          </span>
+        </div>
+      )}
 
       {/* ── KPI Summary Header Cards ────────────────────────── */}
       <div className="rent-stats-grid" style={{
@@ -562,7 +608,7 @@ export default function RentTracker() {
                     <td style={{ padding: '14px 12px', textAlign: 'right' }}>
                       <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' }}>
                         {/* Tenant Action: Pay with Stripe for due/overdue/partial */}
-                        {!canManage && p.status !== 'paid' && (
+                        {isTenant && p.status !== 'paid' && (
                           <button
                             className="btn btn-sm"
                             onClick={() => handleOpenPayModal(p)}
@@ -591,7 +637,9 @@ export default function RentTracker() {
                             📄 Receipt
                           </button>
                         )}
-                        {canManage && (
+
+                        {/* ONLY LANDLORD HAS POWER FOR RENT ACTIONS */}
+                        {isLandlord && (
                           <>
                             {p.status !== 'paid' && (
                               <button
@@ -639,6 +687,26 @@ export default function RentTracker() {
                             </button>
                           </>
                         )}
+
+                        {/* Admin indicator: only landlord has power, admin gets notified */}
+                        {isAdmin && (
+                          <span
+                            style={{
+                              fontSize: '0.72rem',
+                              color: '#94a3b8',
+                              background: 'rgba(255, 255, 255, 0.04)',
+                              border: '1px solid rgba(255, 255, 255, 0.08)',
+                              borderRadius: '6px',
+                              padding: '3px 8px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                            }}
+                            title="Rent actions (editing, marking paid/due) are restricted to Landlords only. Admin is notified of updates."
+                          >
+                            🔒 Landlord Only
+                          </span>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -649,8 +717,8 @@ export default function RentTracker() {
         </div>
       )}
 
-      {/* ── Modal 1: Create / Edit Rent Record ─────────────── */}
-      {isModalOpen && (
+      {/* ── Modal 1: Create / Edit Rent Record (LANDLORD ONLY) ── */}
+      {isModalOpen && canManage && (
         <div className="modal-backdrop" onClick={() => setIsModalOpen(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
             <div className="modal-header">
@@ -833,8 +901,8 @@ export default function RentTracker() {
         </div>
       )}
 
-      {/* ── Modal 2: Bulk Generate Rent Records ─────────────── */}
-      {isBulkModalOpen && (
+      {/* ── Modal 2: Bulk Generate Rent Records (LANDLORD ONLY) ── */}
+      {isBulkModalOpen && canManage && (
         <div className="modal-backdrop" onClick={() => setIsBulkModalOpen(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '450px' }}>
             <div className="modal-header">

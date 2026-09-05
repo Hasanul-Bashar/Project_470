@@ -16,6 +16,7 @@ import PolygonMap from '../components/PolygonMap';
 import { getImageUrl, PLACEHOLDER_IMAGE } from '../utils/imageUtils';
 import AiAssistantWidget from '../components/assistant/AiAssistantWidget';
 import VirtualTourViewer from '../components/VirtualTourViewer';
+import BookingCalendarPicker from '../components/BookingCalendarPicker';
 
 export default function UserDashboard() {
   const { user } = useAuth();
@@ -347,102 +348,137 @@ export default function UserDashboard() {
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-              {activeUnreadBookings.map((b) => (
-                <div
-                  key={b._id}
-                  style={{
-                    padding: '1rem 1.15rem',
-                    borderRadius: '12px',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                    background: 'rgba(255, 255, 255, 0.03)',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                    gap: '1rem',
-                  }}
-                >
-                  <div>
-                    <h4 style={{ margin: '0 0 0.35rem 0', fontSize: '1rem', fontWeight: 700, color: '#f8fafc' }}>
-                      {b.listingTitle}
-                    </h4>
-                    <p style={{ margin: 0, fontSize: '0.84rem', color: '#94a3b8' }}>
-                      📍 {b.listingLocation} | 📅 Requested Dates: <strong style={{ color: '#38bdf8' }}>{b.dates?.join(', ')}</strong>
-                    </p>
-                    {b.notes && (
-                      <p style={{ margin: '0.35rem 0 0 0', fontSize: '0.8rem', color: '#cbd5e1', fontStyle: 'italic' }}>
-                        Note: "{b.notes}"
+              {activeUnreadBookings.map((b) => {
+                const isRejectedByLandlord = b.status === 'rejected' && b.rejectedBy === 'landlord';
+                const isRejectedByAdmin    = b.status === 'rejected' && b.rejectedBy === 'admin';
+                const borderColor =
+                  b.status === 'approved'         ? 'rgba(16, 185, 129, 0.3)'  :
+                  b.status === 'rejected'         ? 'rgba(239, 68, 68, 0.3)'   :
+                  b.status === 'pending_admin'    ? 'rgba(59, 130, 246, 0.25)' :
+                                                    'rgba(255, 255, 255, 0.08)';
+
+                return (
+                  <div
+                    key={b._id}
+                    style={{
+                      padding: '1rem 1.15rem',
+                      borderRadius: '12px',
+                      border: `1px solid ${borderColor}`,
+                      background: 'rgba(255, 255, 255, 0.03)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.75rem',
+                    }}
+                  >
+                    {/* Property & dates */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      <div>
+                        <h4 style={{ margin: '0 0 0.25rem', fontSize: '1rem', fontWeight: 700, color: '#f8fafc' }}>
+                          {b.listingTitle}
+                        </h4>
+                        <p style={{ margin: 0, fontSize: '0.84rem', color: '#94a3b8' }}>
+                          📍 {b.listingLocation} | 📅 <strong style={{ color: '#38bdf8' }}>{b.dates?.join(', ')}</strong>
+                        </p>
+                        {b.notes && (
+                          <p style={{ margin: '0.25rem 0 0', fontSize: '0.78rem', color: '#cbd5e1', fontStyle: 'italic' }}>
+                            Note: "{b.notes}"
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 3-Step Pipeline Visual */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: 'wrap' }}>
+                      {/* Step 1: Submitted */}
+                      <span style={{
+                        fontSize: '0.72rem', fontWeight: 700, padding: '0.25rem 0.65rem',
+                        borderRadius: '20px',
+                        background: 'rgba(16, 185, 129, 0.15)', color: '#34d399',
+                        border: '1px solid rgba(16, 185, 129, 0.3)',
+                      }}>
+                        ✓ Submitted
+                      </span>
+
+                      <span style={{ color: '#475569', fontSize: '0.75rem' }}>→</span>
+
+                      {/* Step 2: Landlord */}
+                      <span style={{
+                        fontSize: '0.72rem', fontWeight: 700, padding: '0.25rem 0.65rem',
+                        borderRadius: '20px',
+                        ...(isRejectedByLandlord ? {
+                          background: 'rgba(239, 68, 68, 0.15)', color: '#f87171',
+                          border: '1px solid rgba(239, 68, 68, 0.3)',
+                        } : b.status === 'pending_landlord' ? {
+                          background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24',
+                          border: '1px solid rgba(245, 158, 11, 0.3)',
+                        } : {
+                          background: 'rgba(16, 185, 129, 0.15)', color: '#34d399',
+                          border: '1px solid rgba(16, 185, 129, 0.3)',
+                        }),
+                      }}>
+                        {isRejectedByLandlord ? '✗ Landlord Rejected' :
+                         b.status === 'pending_landlord' ? '⏳ Landlord Review' : '✓ Landlord Approved'}
+                      </span>
+
+                      {!isRejectedByLandlord && (
+                        <>
+                          <span style={{ color: '#475569', fontSize: '0.75rem' }}>→</span>
+
+                          {/* Step 3: Admin */}
+                          <span style={{
+                            fontSize: '0.72rem', fontWeight: 700, padding: '0.25rem 0.65rem',
+                            borderRadius: '20px',
+                            ...(isRejectedByAdmin ? {
+                              background: 'rgba(239, 68, 68, 0.15)', color: '#f87171',
+                              border: '1px solid rgba(239, 68, 68, 0.3)',
+                            } : b.status === 'pending_landlord' ? {
+                              background: 'rgba(255,255,255,0.05)', color: '#475569',
+                              border: '1px solid rgba(255,255,255,0.07)',
+                            } : b.status === 'pending_admin' ? {
+                              background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa',
+                              border: '1px solid rgba(59, 130, 246, 0.3)',
+                            } : {
+                              background: 'rgba(16, 185, 129, 0.15)', color: '#34d399',
+                              border: '1px solid rgba(16, 185, 129, 0.3)',
+                            }),
+                          }}>
+                            {isRejectedByAdmin    ? '✗ Admin Rejected' :
+                             b.status === 'pending_admin' ? '⏳ Admin Review' :
+                             b.status === 'approved'      ? '✓ Admin Approved' : '— Pending'}
+                          </span>
+
+                          {!isRejectedByAdmin && b.status !== 'pending_admin' && b.status !== 'pending_landlord' && (
+                            <>
+                              <span style={{ color: '#475569', fontSize: '0.75rem' }}>→</span>
+                              <span style={{
+                                fontSize: '0.72rem', fontWeight: 700, padding: '0.25rem 0.65rem',
+                                borderRadius: '20px',
+                                background: 'rgba(16, 185, 129, 0.2)', color: '#10b981',
+                                border: '1px solid rgba(16, 185, 129, 0.4)',
+                              }}>
+                                🎉 Dates Reserved!
+                              </span>
+                            </>
+                          )}
+                        </>
+                      )}
+                    </div>
+
+                    {/* Rejection reason if any */}
+                    {b.status === 'rejected' && b.rejectionReason && (
+                      <p style={{
+                        margin: 0, fontSize: '0.78rem', padding: '0.45rem 0.75rem',
+                        background: 'rgba(239, 68, 68, 0.08)',
+                        border: '1px solid rgba(239, 68, 68, 0.2)',
+                        borderRadius: '8px',
+                        color: '#fca5a5',
+                      }}>
+                        ℹ️ Reason: <em>"{b.rejectionReason}"</em>
                       </p>
                     )}
                   </div>
-
-                  <div>
-                    {b.status === 'pending_landlord' && (
-                      <span
-                        style={{
-                          background: 'rgba(245, 158, 11, 0.15)',
-                          color: '#fbbf24',
-                          border: '1px solid rgba(245, 158, 11, 0.3)',
-                          padding: '0.4rem 0.8rem',
-                          borderRadius: '20px',
-                          fontSize: '0.82rem',
-                          fontWeight: '700',
-                        }}
-                      >
-                        🟡 Pending Landlord Review
-                      </span>
-                    )}
-
-                    {b.status === 'pending_admin' && (
-                      <span
-                        style={{
-                          background: 'rgba(59, 130, 246, 0.15)',
-                          color: '#60a5fa',
-                          border: '1px solid rgba(59, 130, 246, 0.3)',
-                          padding: '0.4rem 0.8rem',
-                          borderRadius: '20px',
-                          fontSize: '0.82rem',
-                          fontWeight: '700',
-                        }}
-                      >
-                        🔵 Landlord Approved — Admin Approval Pending ⏳
-                      </span>
-                    )}
-
-                    {b.status === 'approved' && (
-                      <span
-                        style={{
-                          background: 'rgba(16, 185, 129, 0.15)',
-                          color: '#34d399',
-                          border: '1px solid rgba(16, 185, 129, 0.3)',
-                          padding: '0.4rem 0.8rem',
-                          borderRadius: '20px',
-                          fontSize: '0.82rem',
-                          fontWeight: '700',
-                        }}
-                      >
-                        🟢 🎉 Approved by Admin! Dates Reserved
-                      </span>
-                    )}
-
-                    {b.status === 'rejected' && (
-                      <span
-                        style={{
-                          background: 'rgba(239, 68, 68, 0.15)',
-                          color: '#f87171',
-                          border: '1px solid rgba(239, 68, 68, 0.3)',
-                          padding: '0.4rem 0.8rem',
-                          borderRadius: '20px',
-                          fontSize: '0.82rem',
-                          fontWeight: '700',
-                        }}
-                      >
-                        🔴 Request Rejected
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -940,33 +976,79 @@ export default function UserDashboard() {
       {bookingListing && (
         <Modal
           title={`Book Property: ${bookingListing.title}`}
-          onClose={() => setBookingListing(null)}
+          onClose={() => {
+            setBookingListing(null);
+            setBookingDateInput('');
+            setInquiryMsg('');
+          }}
+          wide={true}
         >
-          <form onSubmit={handleBookingSubmit} style={{ padding: '1rem' }}>
+          <form onSubmit={handleBookingSubmit} style={{ padding: '1.25rem' }}>
             <div
               style={{
                 background: 'rgba(255, 255, 255, 0.04)',
                 border: '1px solid rgba(255, 255, 255, 0.08)',
-                borderRadius: '8px',
-                padding: '0.85rem',
-                marginBottom: '1rem',
+                borderRadius: '10px',
+                padding: '0.85rem 1.15rem',
+                marginBottom: '1.25rem',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '0.75rem',
               }}
             >
-              <h4 style={{ margin: '0 0 0.25rem 0', color: '#f8fafc' }}>{bookingListing.title}</h4>
-              <p style={{ margin: 0, fontSize: '0.85rem', color: '#94a3b8' }}>
-                📍 {bookingListing.location} | BDT {bookingListing.price?.toLocaleString()}/month
-              </p>
+              <div>
+                <h4 style={{ margin: '0 0 0.25rem 0', color: '#f8fafc', fontSize: '1.05rem', fontWeight: 700 }}>
+                  {bookingListing.title}
+                </h4>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: '#94a3b8' }}>
+                  📍 {bookingListing.location}
+                </p>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <span style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--green)' }}>
+                  BDT {bookingListing.price?.toLocaleString()}
+                </span>
+                <span style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block' }}>
+                  / month
+                </span>
+              </div>
             </div>
 
-            <div className="form-group" style={{ marginBottom: '1rem' }}>
-              <label className="form-label">Requested Date(s) * (Comma separated)</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="e.g. 2026-09-15, 2026-09-16, 2026-09-17"
-                value={bookingDateInput}
-                onChange={(e) => setBookingDateInput(e.target.value)}
-                required
+            {/* Interactive Calendar Date Picker */}
+            <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+              <label
+                className="form-label"
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '0.5rem',
+                }}
+              >
+                <span style={{ fontWeight: 700, color: '#f8fafc' }}>
+                  📅 Select Rental Dates *
+                </span>
+                <span style={{ fontSize: '0.75rem', color: '#a5b4fc', fontWeight: 'normal' }}>
+                  Click calendar dates to mark
+                </span>
+              </label>
+
+              <BookingCalendarPicker
+                alreadyBookedDates={bookingListing.bookedDates || []}
+                selectedDates={
+                  bookingDateInput
+                    ? bookingDateInput
+                        .split(',')
+                        .map((s) => s.trim())
+                        .filter(Boolean)
+                    : []
+                }
+                onDatesChange={(newDates) => {
+                  setBookingDateInput(newDates.join(', '));
+                }}
+                propertyPrice={bookingListing.price}
               />
             </div>
 
@@ -974,18 +1056,22 @@ export default function UserDashboard() {
               <label className="form-label">Note for Landlord (Optional)</label>
               <textarea
                 className="form-textarea"
-                rows="3"
+                rows="2"
                 placeholder="Include your move-in timeline or family details..."
                 value={inquiryMsg}
                 onChange={(e) => setInquiryMsg(e.target.value)}
               />
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem' }}>
               <button
                 type="button"
                 className="btn btn-secondary"
-                onClick={() => setBookingListing(null)}
+                onClick={() => {
+                  setBookingListing(null);
+                  setBookingDateInput('');
+                  setInquiryMsg('');
+                }}
                 disabled={submittingBooking}
               >
                 Cancel
@@ -993,7 +1079,8 @@ export default function UserDashboard() {
               <button
                 type="submit"
                 className="btn btn-primary"
-                disabled={submittingBooking}
+                disabled={submittingBooking || !bookingDateInput.trim()}
+                style={{ minWidth: '180px' }}
               >
                 {submittingBooking ? 'Submitting...' : '🚀 Submit Rental Request'}
               </button>

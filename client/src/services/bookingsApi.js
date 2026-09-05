@@ -22,5 +22,6 @@ export const landlordApproveBooking = (id) =>
 export const adminApproveBooking = (id) =>
   api.patch(`/bookings/${id}/admin-approve`);
 
-export const rejectBooking = (id) =>
-  api.patch(`/bookings/${id}/reject`);
+export const rejectBooking = (id, reason = '') =>
+  api.patch(`/bookings/${id}/reject`, { reason });
+

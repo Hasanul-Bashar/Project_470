@@ -74,6 +74,8 @@ export default function LandlordListings() {
   };
 
   const [toast, setToast] = useState(null);
+  const [bookingRejectTarget, setBookingRejectTarget] = useState(null);
+  const [bookingRejectReason, setBookingRejectReason] = useState('');
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -160,10 +162,13 @@ export default function LandlordListings() {
   };
 
   // Landlord rejects tenant booking
-  const handleRejectTenantBooking = async (id) => {
+  const handleConfirmRejectBooking = async () => {
+    if (!bookingRejectTarget) return;
     try {
-      await rejectBooking(id);
-      showToast('Booking request rejected.', 'info');
+      await rejectBooking(bookingRejectTarget.id, bookingRejectReason);
+      showToast('Booking request rejected. Tenant notified.', 'info');
+      setBookingRejectTarget(null);
+      setBookingRejectReason('');
       fetchTenantBookings();
     } catch (err) {
       showToast('Failed to reject booking', 'error');
@@ -489,7 +494,7 @@ export default function LandlordListings() {
                         <button
                           className="btn btn-reject"
                           style={{ fontSize: '0.8rem', padding: '0.45rem 0.9rem' }}
-                          onClick={() => handleRejectTenantBooking(b._id)}
+                          onClick={() => setBookingRejectTarget({ id: b._id, title: b.listingTitle, tenantName: b.tenantName })}
                         >
                           🔴 Reject
                         </button>
@@ -551,19 +556,26 @@ export default function LandlordListings() {
                     )}
 
                     {b.status === 'rejected' && (
-                      <span
-                        style={{
-                          background: 'rgba(239, 68, 68, 0.15)',
-                          color: '#f87171',
-                          border: '1px solid rgba(239, 68, 68, 0.3)',
-                          padding: '0.4rem 0.8rem',
-                          borderRadius: '20px',
-                          fontSize: '0.82rem',
-                          fontWeight: '700',
-                        }}
-                      >
-                        🔴 Rejected
-                      </span>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.2rem' }}>
+                        <span
+                          style={{
+                            background: 'rgba(239, 68, 68, 0.15)',
+                            color: '#f87171',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                            padding: '0.4rem 0.8rem',
+                            borderRadius: '20px',
+                            fontSize: '0.82rem',
+                            fontWeight: '700',
+                          }}
+                        >
+                          🔴 Rejected {b.rejectedBy ? `by ${b.rejectedBy === 'landlord' ? 'You' : 'Admin'}` : ''}
+                        </span>
+                        {b.rejectionReason && (
+                          <span style={{ fontSize: '0.72rem', color: '#94a3b8', fontStyle: 'italic' }}>
+                            "{b.rejectionReason}"
+                          </span>
+                        )}
+                      </div>
                     )}
                   </div>
 
@@ -594,6 +606,79 @@ export default function LandlordListings() {
           )}
         </div>
       </div>
+
+      {/* ── Landlord Booking Rejection Modal ── */}
+      {bookingRejectTarget && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.72)',
+            backdropFilter: 'blur(6px)',
+            zIndex: 300,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem',
+          }}
+          onClick={() => setBookingRejectTarget(null)}
+        >
+          <div
+            style={{
+              background: '#111827',
+              border: '1px solid rgba(239,68,68,0.3)',
+              borderTop: '3px solid #ef4444',
+              borderRadius: '16px',
+              padding: '1.75rem',
+              width: '100%',
+              maxWidth: '460px',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.65)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ margin: '0 0 0.5rem', color: '#f8fafc', fontSize: '1rem', fontWeight: 700 }}>
+              🔴 Reject Booking Request
+            </h3>
+            <p style={{ margin: '0 0 1rem', fontSize: '0.84rem', color: '#94a3b8' }}>
+              Rejecting request from <strong style={{ color: '#f8fafc' }}>{bookingRejectTarget.tenantName}</strong> for{' '}
+              <strong style={{ color: '#f8fafc' }}>{bookingRejectTarget.title}</strong>.
+              <br />
+              The tenant will receive an instant notification explaining this decision.
+            </p>
+            <textarea
+              className="form-textarea"
+              rows="3"
+              placeholder="Optional reason (e.g., 'Property under renovation during these dates')"
+              value={bookingRejectReason}
+              onChange={(e) => setBookingRejectReason(e.target.value)}
+              style={{ marginBottom: '1rem', fontSize: '0.85rem', width: '100%' }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+              <button
+                className="btn btn-secondary"
+                onClick={() => {
+                  setBookingRejectTarget(null);
+                  setBookingRejectReason('');
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn"
+                style={{
+                  background: 'linear-gradient(135deg, #b91c1c, #ef4444)',
+                  color: '#fff',
+                  borderColor: 'transparent',
+                  boxShadow: '0 0 12px rgba(239,68,68,0.3)',
+                }}
+                onClick={handleConfirmRejectBooking}
+              >
+                🔴 Confirm Rejection
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── TENANT MAINTENANCE ISSUES PANEL ───────────────────────────── */}
       <div

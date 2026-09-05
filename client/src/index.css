@@ -1376,5 +1376,366 @@ select option, .form-input option, .form-select option, option {
 
 .analytics-loading, .analytics-error { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 50vh; gap: 1rem; color: var(--t2); }
 
+/* ── Interactive Booking Calendar Picker Styles ──────────────── */
+.bcp-container {
+  background: rgba(13, 20, 37, 0.75);
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  border-radius: var(--r-md);
+  padding: 1rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.bcp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.bcp-month-display {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.bcp-calendar-icon {
+  font-size: 1.1rem;
+}
+
+.bcp-month-label {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--t1);
+}
+
+.bcp-nav-btns {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.bcp-btn-nav, .bcp-btn-today {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--t1);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: all var(--dur) var(--ease);
+}
+
+.bcp-btn-nav {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.8rem;
+}
+
+.bcp-btn-today {
+  padding: 0.3rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--teal);
+  border-color: rgba(34, 211, 238, 0.3);
+}
+
+.bcp-btn-nav:hover, .bcp-btn-today:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+}
+
+.bcp-presets-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+  padding: 0.45rem 0.65rem;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: var(--r-sm);
+}
+
+.bcp-presets-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--t3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-right: 0.2rem;
+}
+
+.bcp-preset-pill {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--r-full);
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  background: rgba(139, 92, 246, 0.12);
+  color: #c4b5fd;
+  cursor: pointer;
+  transition: all var(--dur) var(--ease);
+}
+
+.bcp-preset-pill:hover {
+  background: rgba(139, 92, 246, 0.28);
+  border-color: var(--purple);
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.bcp-preset-pill.clear {
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.12);
+  color: #fca5a5;
+  margin-left: auto;
+}
+
+.bcp-preset-pill.clear:hover {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: var(--red);
+  color: #ffffff;
+}
+
+.bcp-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.72rem;
+  color: var(--t3);
+  margin-bottom: 0.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.bcp-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+  margin-bottom: 0.75rem;
+}
+
+.bcp-cell.empty {
+  aspect-ratio: 1;
+}
+
+.bcp-day-btn {
+  aspect-ratio: 1;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all var(--dur) var(--ease);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: var(--bg-card);
+  color: var(--t1);
+  padding: 0;
+}
+
+.bcp-day-btn.available {
+  border-color: rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.05);
+}
+
+.bcp-day-btn.available:hover {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: var(--green);
+  transform: translateY(-2px);
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+}
+
+.bcp-day-btn.selected {
+  border-color: var(--purple) !important;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.55);
+  transform: scale(1.05);
+  z-index: 2;
+}
+
+.bcp-check-badge {
+  position: absolute;
+  top: 2px;
+  right: 3px;
+  font-size: 0.6rem;
+  font-weight: 800;
+  color: #ffffff;
+  line-height: 1;
+}
+
+.bcp-day-btn.booked {
+  background: rgba(239, 68, 68, 0.12) !important;
+  border-color: rgba(239, 68, 68, 0.35) !important;
+  color: #f87171 !important;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.bcp-booked-dot {
+  position: absolute;
+  bottom: 3px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--red);
+}
+
+.bcp-day-btn.past {
+  background: rgba(255, 255, 255, 0.015) !important;
+  border-color: rgba(255, 255, 255, 0.04) !important;
+  color: #475569 !important;
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.bcp-day-btn.today {
+  outline: 2px solid var(--teal);
+  outline-offset: 1px;
+}
+
+.bcp-legend {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  margin-bottom: 0.75rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 0.73rem;
+  color: var(--t2);
+}
+
+.bcp-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.bcp-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.bcp-dot.dot-available { background: var(--green); }
+.bcp-dot.dot-selected  { background: linear-gradient(135deg, #6366f1, #8b5cf6); }
+.bcp-dot.dot-booked    { background: var(--red); }
+.bcp-dot.dot-past      { background: #475569; }
+
+.bcp-summary-card {
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: var(--r-sm);
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.bcp-summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.bcp-count-badge {
+  font-size: 0.85rem;
+  color: var(--t1);
+}
+
+.bcp-count-badge strong {
+  color: var(--purple);
+  font-size: 0.95rem;
+}
+
+.bcp-est-cost {
+  font-size: 0.85rem;
+  color: var(--green);
+}
+
+.bcp-rate-sub {
+  font-size: 0.75rem;
+  color: var(--t3);
+  font-weight: normal;
+}
+
+.bcp-chips-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  max-height: 90px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.bcp-date-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--r-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: rgba(139, 92, 246, 0.18);
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  color: #e0e7ff;
+}
+
+.bcp-chip-remove {
+  background: none;
+  border: none;
+  color: #a5b4fc;
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+.bcp-chip-remove:hover {
+  color: #ffffff;
+}
+
+.bcp-empty-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--t2);
+  line-height: 1.45;
+}
+
+.bcp-empty-hint kbd {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 0.72rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.bcp-manual-toggle-row {
+  margin-top: 0.4rem;
+}
+
+.bcp-toggle-link {
+  background: none;
+  border: none;
+  color: var(--teal);
+  font-size: 0.75rem;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.bcp-toggle-link:hover {
+  color: #67e8f9;
+}
+
+
 
 
