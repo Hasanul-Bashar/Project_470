@@ -40,7 +40,9 @@ export default function RentTracker() {
     tenantEmail: '',
     listingTitle: '',
     month: new Date().toISOString().slice(0, 7), // "YYYY-MM"
-    amount: 1200,
+    bookedDays: 7,
+    dailyRate: 1000,
+    amount: 7000,
     dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
     status: 'due',
     paymentMethod: 'Cash',
@@ -87,22 +89,28 @@ export default function RentTracker() {
       tenantEmail: '',
       listingTitle: '',
       month: new Date().toISOString().slice(0, 7),
-      amount: 1200,
+      bookedDays: 7,
+      dailyRate: 1000,
+      amount: 7000,
       dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
       status: 'due',
       paymentMethod: 'Cash',
-      notes: '',
+      notes: 'Rent calculated for 7 booked days',
     });
     setIsModalOpen(true);
   };
 
   const handleOpenEditModal = (item) => {
     setEditingId(item._id);
+    const itemDays = item.bookedDays || (item.dailyRate ? Math.round(item.amount / item.dailyRate) : 1);
+    const itemDaily = item.dailyRate || (itemDays ? Math.round(item.amount / itemDays) : item.amount);
     setFormData({
       tenantName: item.tenantName || '',
       tenantEmail: item.tenantEmail || '',
       listingTitle: item.listingTitle || '',
       month: item.month || new Date().toISOString().slice(0, 7),
+      bookedDays: itemDays,
+      dailyRate: itemDaily,
       amount: item.amount || 0,
       dueDate: item.dueDate ? new Date(item.dueDate).toISOString().slice(0, 10) : '',
       status: item.status || 'due',
@@ -195,7 +203,7 @@ export default function RentTracker() {
             <span style={{ fontSize: '1.4rem' }}>💵</span>
           </div>
           <div className="stat-card-value" style={{ color: '#10b981' }}>
-            ${summary.totalCollected.toLocaleString()}
+            ৳{summary.totalCollected.toLocaleString()}
           </div>
           <div className="stat-card-sub">{summary.paidCount} paid records</div>
         </div>
@@ -206,7 +214,7 @@ export default function RentTracker() {
             <span style={{ fontSize: '1.4rem' }}>⏳</span>
           </div>
           <div className="stat-card-value" style={{ color: '#3b82f6' }}>
-            ${summary.totalDue.toLocaleString()}
+            ৳{summary.totalDue.toLocaleString()}
           </div>
           <div className="stat-card-sub">{summary.dueCount} active due records</div>
         </div>
@@ -222,7 +230,7 @@ export default function RentTracker() {
             <span className="pulsing-warning-icon">🚨</span>
           </div>
           <div className="stat-card-value" style={{ color: '#ef4444' }}>
-            ${summary.totalOverdue.toLocaleString()}
+            ৳{summary.totalOverdue.toLocaleString()}
           </div>
           <div className="stat-card-sub" style={{ color: '#ef4444', fontWeight: 600 }}>
             {summary.overdueCount} tenant(s) overdue
@@ -380,8 +388,19 @@ export default function RentTracker() {
                     </td>
 
                     {/* Amount */}
-                    <td style={{ padding: '14px 12px', fontWeight: 700, color: '#f8fafc', fontSize: '1rem' }}>
-                      ${p.amount?.toLocaleString()}
+                    <td style={{ padding: '14px 12px' }}>
+                      <div style={{ fontWeight: 700, color: '#f8fafc', fontSize: '1rem' }}>
+                        ৳{p.amount?.toLocaleString()}
+                      </div>
+                      {p.bookedDays > 0 ? (
+                        <div style={{ fontSize: '0.76rem', color: '#38bdf8', marginTop: '2px', fontWeight: 500 }}>
+                          📆 {p.bookedDays} day{p.bookedDays > 1 ? 's' : ''} {p.dailyRate ? `(@ ৳${p.dailyRate.toLocaleString()}/d)` : ''}
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: '0.74rem', color: '#94a3b8', marginTop: '2px' }}>
+                          Standard rate
+                        </div>
+                      )}
                     </td>
 
                     {/* Due Date & Overdue Flag */}
@@ -562,14 +581,59 @@ export default function RentTracker() {
                   </div>
 
                   <div>
-                    <label className="form-label">Rent Amount ($) *</label>
+                    <label className="form-label">Booked Days (Duration) *</label>
+                    <input
+                      type="number"
+                      className="input"
+                      required
+                      min="1"
+                      value={formData.bookedDays || ''}
+                      onChange={(e) => {
+                        const days = Number(e.target.value);
+                        const rate = Number(formData.dailyRate) || 0;
+                        setFormData({
+                          ...formData,
+                          bookedDays: days,
+                          amount: days > 0 && rate > 0 ? days * rate : formData.amount,
+                        });
+                      }}
+                      placeholder="e.g. 5, 12, 30"
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div>
+                    <label className="form-label">Daily Rent Rate (৳/day) *</label>
+                    <input
+                      type="number"
+                      className="input"
+                      required
+                      min="0"
+                      value={formData.dailyRate || ''}
+                      onChange={(e) => {
+                        const rate = Number(e.target.value);
+                        const days = Number(formData.bookedDays) || 0;
+                        setFormData({
+                          ...formData,
+                          dailyRate: rate,
+                          amount: days > 0 && rate > 0 ? days * rate : formData.amount,
+                        });
+                      }}
+                      placeholder="e.g. 1000"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="form-label">Total Rent (৳ calculated) *</label>
                     <input
                       type="number"
                       className="input"
                       required
                       min="0"
                       value={formData.amount}
-                      onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) })}
+                      title="Calculated as Booked Days × Daily Rate"
                     />
                   </div>
                 </div>
@@ -653,7 +717,7 @@ export default function RentTracker() {
             <form onSubmit={handleBulkGenerate}>
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <p style={{ fontSize: '0.9rem', color: '#94a3b8' }}>
-                  Automatically generate monthly rent due records for all active tenants with approved bookings under your account.
+                  Automatically generate rent records for all active tenants with approved bookings under your account. Rent is calculated precisely based on the number of days booked for the flat rather than the whole month.
                 </p>
 
                 <div>

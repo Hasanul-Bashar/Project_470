@@ -114,6 +114,48 @@ exports.adminApprove = async (req, res) => {
       booking.dates.forEach((d) => existingDates.add(d));
       listing.bookedDates = Array.from(existingDates);
       await listing.save();
+
+      // ── Automatically create/sync day-based rent payment record ──
+      try {
+        const RentPayment = require('../models/RentPayment');
+        const bookedDaysCount = booking.dates?.length || 1;
+        // Determine primary month (e.g. from the first booked date or current month)
+        const primaryMonth = booking.dates?.[0]?.slice(0, 7) || new Date().toISOString().slice(0, 7);
+        const [yStr, mStr] = primaryMonth.split('-');
+        const daysInMonth = (yStr && mStr) ? new Date(parseInt(yStr, 10), parseInt(mStr, 10), 0).getDate() : 30;
+        
+        const monthlyRent = listing.price || 30000;
+        const dailyRate = Math.round(monthlyRent / daysInMonth);
+        const calculatedRentAmount = Math.round(dailyRate * bookedDaysCount);
+
+        // Due date: 5 days from today or on the start date
+        const dueDate = new Date();
+        dueDate.setDate(dueDate.getDate() + 5);
+
+        await RentPayment.findOneAndUpdate(
+          {
+            bookingId: booking._id,
+          },
+          {
+            tenantId: booking.tenantId,
+            tenantName: booking.tenantName,
+            tenantEmail: booking.tenantEmail,
+            landlordId: booking.landlordId,
+            listingId: listing._id,
+            listingTitle: listing.title,
+            month: primaryMonth,
+            amount: calculatedRentAmount,
+            bookedDays: bookedDaysCount,
+            dailyRate,
+            bookingId: booking._id,
+            dueDate,
+            notes: `Calculated for ${bookedDaysCount} booked day(s) @ ৳${dailyRate.toLocaleString()}/day (Monthly rate: ৳${monthlyRent.toLocaleString()})`,
+          },
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+      } catch (rentErr) {
+        console.error('⚠️ Could not auto-generate rent record on approval:', rentErr.message);
+      }
     }
 
     return res.json({

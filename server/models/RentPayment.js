@@ -18,6 +18,13 @@ const RentPaymentSchema = new mongoose.Schema(
 
     month: { type: String, required: true }, // e.g. "2026-09" or "September 2026"
     amount: { type: Number, required: true, min: 0 },
+    bookedDays: { type: Number, default: 0 }, // Number of days booked
+    dailyRate: { type: Number, default: 0 }, // Daily prorated rate or per-day rent
+    bookingId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Booking',
+      required: false,
+    },
     dueDate: { type: Date, required: true },
 
     status: {

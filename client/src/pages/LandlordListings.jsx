@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getListings, createListing, updateListingAvailability } from '../services/listingsApi';
 import { getBookings, landlordApproveBooking, rejectBooking } from '../services/bookingsApi';
+import { getMaintenanceRequests, updateMaintenanceStage } from '../services/maintenanceApi';
 import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Modal';
 import AvailabilityCalendar from '../components/admin/AvailabilityCalendar';
@@ -93,6 +94,8 @@ export default function LandlordListings() {
     }
   };
 
+  const [tenantMaintenance, setTenantMaintenance] = useState([]);
+
   const fetchTenantBookings = async () => {
     try {
       const res = await getBookings();
@@ -102,10 +105,33 @@ export default function LandlordListings() {
     }
   };
 
+  const fetchTenantMaintenance = async () => {
+    try {
+      const res = await getMaintenanceRequests();
+      setTenantMaintenance(res.data.requests || []);
+    } catch (err) {
+      console.error('Error fetching tenant maintenance:', err);
+    }
+  };
+
+  const handleAcknowledgeMaintenance = async (id, mTitle) => {
+    try {
+      await updateMaintenanceStage(id, {
+        status: 'Acknowledged',
+        note: 'Landlord acknowledged preliminary submitted ticket from dashboard.',
+      });
+      showToast(`Maintenance issue "${mTitle}" acknowledged!`);
+      fetchTenantMaintenance();
+    } catch (err) {
+      showToast('Failed to acknowledge maintenance ticket', 'error');
+    }
+  };
+
   useEffect(() => {
     if (user?.role === 'landlord') {
       fetchListings();
       fetchTenantBookings();
+      fetchTenantMaintenance();
     }
   }, [user?.role]);
 
@@ -260,8 +286,23 @@ export default function LandlordListings() {
             onClick={() => navigate('/maintenance')}
             id="btn-open-maintenance"
             title="Manage maintenance requests and repair stages"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
           >
             🛠 Maintenance
+            {tenantMaintenance.filter((m) => m.status === 'Submitted').length > 0 && (
+              <span
+                style={{
+                  background: '#3b82f6',
+                  color: '#ffffff',
+                  fontSize: '0.72rem',
+                  padding: '2px 7px',
+                  borderRadius: '10px',
+                  fontWeight: 700,
+                }}
+              >
+                {tenantMaintenance.filter((m) => m.status === 'Submitted').length} Submitted
+              </span>
+            )}
           </button>
           <button
             className="btn btn-secondary"
@@ -493,6 +534,191 @@ export default function LandlordListings() {
                         🔴 Rejected
                       </span>
                     )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── TENANT MAINTENANCE ISSUES PANEL ───────────────────────────── */}
+      <div
+        className="panel"
+        style={{
+          marginBottom: '2.5rem',
+          border: '1px solid rgba(59, 130, 246, 0.3)',
+          borderTop: '3px solid #3b82f6',
+          background: 'rgba(13, 20, 37, 0.85)',
+          backdropFilter: 'blur(16px)',
+          borderRadius: '16px',
+          overflow: 'hidden',
+          boxShadow: '0 12px 32px rgba(0, 0, 0, 0.4)',
+        }}
+      >
+        <div
+          style={{
+            padding: '1.1rem 1.5rem',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '0.75rem',
+          }}
+        >
+          <div>
+            <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              🛠️ Tenant Maintenance Issues
+              {tenantMaintenance.filter((m) => m.status === 'Submitted').length > 0 ? (
+                <span
+                  style={{
+                    fontSize: '0.75rem',
+                    background: 'rgba(59, 130, 246, 0.15)',
+                    color: '#60a5fa',
+                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                    padding: '0.2rem 0.6rem',
+                    borderRadius: '12px',
+                    fontWeight: 700,
+                  }}
+                >
+                  {tenantMaintenance.filter((m) => m.status === 'Submitted').length} Submitted (Preliminary)
+                </span>
+              ) : (
+                <span
+                  style={{
+                    fontSize: '0.75rem',
+                    background: 'rgba(16, 185, 129, 0.15)',
+                    color: 'var(--green)',
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    padding: '0.2rem 0.6rem',
+                    borderRadius: '12px',
+                  }}
+                >
+                  {tenantMaintenance.length} Active Tickets
+                </span>
+              )}
+            </h3>
+            <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.82rem', color: '#94a3b8' }}>
+              When a maintenance issue is submitted by a tenant, it preliminarily stays as <strong>"Submitted"</strong> until you review and acknowledge or advance its repair stage.
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <button
+              className="btn btn-primary"
+              style={{ fontSize: '0.78rem' }}
+              onClick={() => navigate('/maintenance')}
+              title="Open full maintenance repair tracker"
+            >
+              🛠 Open Full Maintenance Tracker ➔
+            </button>
+            <button
+              className="btn btn-secondary"
+              style={{ fontSize: '0.78rem', background: 'rgba(255, 255, 255, 0.05)', color: '#f8fafc' }}
+              onClick={fetchTenantMaintenance}
+              title="Refresh maintenance requests"
+            >
+              🔄 Refresh
+            </button>
+          </div>
+        </div>
+
+        <div style={{ padding: '1.25rem 1.5rem' }}>
+          {tenantMaintenance.length === 0 ? (
+            <div style={{ padding: '1rem 0', textAlign: 'center' }}>
+              <p style={{ color: '#94a3b8', fontSize: '0.88rem', margin: 0 }}>
+                ✨ No active maintenance issues reported for your properties.
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+              {tenantMaintenance.map((m) => (
+                <div
+                  key={m._id}
+                  style={{
+                    padding: '1rem 1.15rem',
+                    borderRadius: '12px',
+                    border: m.status === 'Submitted' ? '1px solid rgba(59, 130, 246, 0.35)' : '1px solid rgba(255, 255, 255, 0.08)',
+                    background: m.status === 'Submitted' ? 'rgba(59, 130, 246, 0.05)' : 'rgba(255, 255, 255, 0.03)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '1rem',
+                  }}
+                >
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', marginBottom: '0.35rem', flexWrap: 'wrap' }}>
+                      <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#f8fafc' }}>
+                        {m.title}
+                      </h4>
+                      <span
+                        style={{
+                          fontSize: '0.72rem',
+                          background: 'rgba(255, 255, 255, 0.08)',
+                          color: '#cbd5e1',
+                          padding: '0.15rem 0.5rem',
+                          borderRadius: '8px',
+                        }}
+                      >
+                        {m.category}
+                      </span>
+                      {m.urgency === 'Emergency' && (
+                        <span style={{ fontSize: '0.72rem', background: '#ef4444', color: '#fff', padding: '0.15rem 0.5rem', borderRadius: '8px', fontWeight: 700 }}>
+                          🔴 Emergency
+                        </span>
+                      )}
+                      <span
+                        style={{
+                          fontSize: '0.75rem',
+                          background: m.status === 'Submitted' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(16, 185, 129, 0.15)',
+                          color: m.status === 'Submitted' ? '#60a5fa' : '#34d399',
+                          border: m.status === 'Submitted' ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid rgba(16, 185, 129, 0.3)',
+                          padding: '0.2rem 0.6rem',
+                          borderRadius: '12px',
+                          fontWeight: 700,
+                        }}
+                      >
+                        {m.status === 'Submitted' ? '📩 Submitted (Preliminary)' : m.status}
+                      </span>
+                    </div>
+                    <p style={{ margin: 0, fontSize: '0.84rem', color: '#94a3b8' }}>
+                      📍 {m.listingTitle} | Reported by <strong>{m.tenantName}</strong> ({m.tenantEmail})
+                    </p>
+                    {m.description && (
+                      <p style={{ margin: '0.35rem 0 0 0', fontSize: '0.8rem', color: '#cbd5e1', fontStyle: 'italic' }}>
+                        "{m.description}"
+                      </p>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    {m.status === 'Submitted' && (
+                      <button
+                        className="btn"
+                        style={{
+                          fontSize: '0.8rem',
+                          padding: '0.45rem 0.9rem',
+                          background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+                          color: '#ffffff',
+                          border: 'none',
+                          boxShadow: '0 0 12px rgba(59, 130, 246, 0.3)',
+                          fontWeight: 600,
+                        }}
+                        onClick={() => handleAcknowledgeMaintenance(m._id, m.title)}
+                        title="Acknowledge this preliminary submitted issue"
+                      >
+                        👁️ Acknowledge Issue
+                      </button>
+                    )}
+                    <button
+                      className="btn btn-secondary"
+                      style={{ fontSize: '0.8rem', padding: '0.45rem 0.9rem' }}
+                      onClick={() => navigate('/maintenance')}
+                    >
+                      ⚙️ Manage Stages
+                    </button>
                   </div>
                 </div>
               ))}

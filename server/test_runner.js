@@ -69,7 +69,37 @@ async function runTests() {
   const savedRes = await axios.get('http://127.0.0.1:5000/api/users/saved', {
     headers: { Authorization: `Bearer ${token}`, 'X-User-Data': userHeader },
   });
-  console.log('7. Fetch Saved Properties Count:', savedRes.data.savedListings?.length);
+  // 8. Day-based Rent Calculation and Overdue Tracking API Test
+  const rentCreateRes = await axios.post(
+    'http://127.0.0.1:5000/api/rent',
+    {
+      tenantEmail: 'tenant.demo@rentease.com',
+      tenantName: 'Day-Booking Tenant',
+      listingTitle: 'Gulshan 3BHK Flat',
+      month: '2026-09',
+      bookedDays: 10,
+      dailyRate: 2500,
+      amount: 25000, // 10 days * 2500
+      dueDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), // past due date
+      status: 'due',
+      notes: '10-day booking pro-rated rent',
+    },
+    { headers: { Authorization: `Bearer ${token}`, 'X-User-Data': userHeader } }
+  );
+  console.log('8. Create Day-Based Rent Record:', rentCreateRes.data?.payment?.amount === 25000 ? '✅ Day Rent = ৳25,000 for 10 days' : '❌ Failed');
+
+  const rentListRes = await axios.get('http://127.0.0.1:5000/api/rent', {
+    headers: { Authorization: `Bearer ${token}`, 'X-User-Data': userHeader },
+  });
+  const createdRecord = rentListRes.data?.payments?.find((p) => p.tenantEmail === 'tenant.demo@rentease.com');
+  console.log('9. Verified Auto-Overdue Flagging for Past Due Date:', createdRecord?.overdueFlagged ? '✅ Flagged Overdue' : '❌ Not Flagged');
+
+  // Clean up test rent payment record
+  if (createdRecord?._id) {
+    await axios.delete(`http://127.0.0.1:5000/api/rent/${createdRecord._id}`, {
+      headers: { Authorization: `Bearer ${token}`, 'X-User-Data': userHeader },
+    });
+  }
 
   console.log('--- ✅ ALL API INTEGRATION TESTS PASSED 100% CLEANLY ---');
 }

@@ -22,13 +22,16 @@ exports.createRentPayment = async (req, res) => {
       listingTitle,
       month,
       amount,
+      bookedDays,
+      dailyRate,
+      bookingId,
       dueDate,
       status,
       paymentMethod,
       notes,
     } = req.body;
 
-    if (!tenantEmail || !listingTitle || !month || !amount || !dueDate) {
+    if (!tenantEmail || !listingTitle || !month || amount === undefined || amount === null || !dueDate) {
       return res.status(400).json({
         message: 'Missing required fields: tenantEmail, listingTitle, month, amount, dueDate',
       });
@@ -48,6 +51,10 @@ exports.createRentPayment = async (req, res) => {
       isOverdue = true;
     }
 
+    const finalAmount = Number(amount);
+    const numBookedDays = Number(bookedDays) || 0;
+    const computedDailyRate = Number(dailyRate) || (numBookedDays > 0 ? Math.round(finalAmount / numBookedDays) : 0);
+
     const newPayment = new RentPayment({
       tenantId: tenantId || tenantEmail,
       tenantName: tenantName || tenantEmail.split('@')[0],
@@ -57,7 +64,10 @@ exports.createRentPayment = async (req, res) => {
       listingId: listingId || null,
       listingTitle,
       month,
-      amount: Number(amount),
+      amount: finalAmount,
+      bookedDays: numBookedDays,
+      dailyRate: computedDailyRate,
+      bookingId: bookingId || null,
       dueDate: parsedDueDate,
       status: initialStatus,
       paidDate: initialStatus === 'paid' ? now : null,
@@ -172,7 +182,7 @@ exports.getRentPayments = async (req, res) => {
 exports.updateRentStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, paidDate, paymentMethod, notes, amount, dueDate } = req.body;
+    const { status, paidDate, paymentMethod, notes, amount, dueDate, bookedDays, dailyRate } = req.body;
 
     const payment = await RentPayment.findById(id);
     if (!payment) {
@@ -199,6 +209,8 @@ exports.updateRentStatus = async (req, res) => {
 
     if (paymentMethod !== undefined) payment.paymentMethod = paymentMethod;
     if (notes !== undefined) payment.notes = notes;
+    if (bookedDays !== undefined) payment.bookedDays = Number(bookedDays);
+    if (dailyRate !== undefined) payment.dailyRate = Number(dailyRate);
     if (amount !== undefined) payment.amount = Number(amount);
     if (dueDate !== undefined) {
       payment.dueDate = new Date(dueDate);
@@ -262,7 +274,7 @@ exports.deleteRentPayment = async (req, res) => {
   }
 };
 
-// ── 5. Bulk generate monthly rent from approved bookings ──────
+// ── 5. Bulk generate rent calculated based on booked days ──────
 exports.bulkGenerateRent = async (req, res) => {
   try {
     const landlordId = req.user?.id || 'demo-landlord';
@@ -276,7 +288,7 @@ exports.bulkGenerateRent = async (req, res) => {
     const approvedBookings = await Booking.find({
       landlordId,
       status: 'approved',
-    });
+    }).populate('listingId');
 
     if (approvedBookings.length === 0) {
       return res.status(404).json({
@@ -286,6 +298,14 @@ exports.bulkGenerateRent = async (req, res) => {
 
     const createdRecords = [];
     const dueDate = defaultDueDate ? new Date(defaultDueDate) : new Date();
+
+    // Parse year and month to determine days in month
+    const [yearStr, monthStr] = month.split('-');
+    const yearNum = parseInt(yearStr, 10);
+    const monthNum = parseInt(monthStr, 10);
+    const daysInMonth = (yearNum && monthNum)
+      ? new Date(yearNum, monthNum, 0).getDate()
+      : 30;
 
     for (const booking of approvedBookings) {
       // Check if already generated for this month
@@ -297,6 +317,16 @@ exports.bulkGenerateRent = async (req, res) => {
       });
 
       if (!existing) {
+        // Calculate booked days for this specific month (e.g. "2026-09")
+        // If booking.dates has entries for this month, count them; otherwise total booked dates
+        const monthDates = (booking.dates || []).filter((d) => d.startsWith(month));
+        const bookedDaysCount = monthDates.length > 0 ? monthDates.length : (booking.dates?.length || 1);
+
+        // Calculate daily rate based on listing price or standard default
+        const listingMonthlyPrice = booking.listingId?.price || 30000;
+        const dailyRate = Math.round(listingMonthlyPrice / daysInMonth);
+        const calculatedAmount = Math.round(dailyRate * bookedDaysCount);
+
         const isOverdue = dueDate < new Date();
         const newRecord = new RentPayment({
           tenantId: booking.tenantId,
@@ -304,14 +334,17 @@ exports.bulkGenerateRent = async (req, res) => {
           tenantEmail: booking.tenantEmail,
           landlordId,
           landlordName: req.user?.name || 'Landlord',
-          listingId: booking.listingId,
+          listingId: booking.listingId?._id || booking.listingId,
           listingTitle: booking.listingTitle,
           month,
-          amount: 1200, // standard default monthly rent
+          amount: calculatedAmount,
+          bookedDays: bookedDaysCount,
+          dailyRate,
+          bookingId: booking._id,
           dueDate,
           status: isOverdue ? 'overdue' : 'due',
           overdueFlagged: isOverdue,
-          notes: 'Auto-generated from approved booking',
+          notes: `Auto-calculated: ${bookedDaysCount} day(s) @ ৳${dailyRate.toLocaleString()}/day`,
         });
         await newRecord.save();
         createdRecords.push(newRecord);
@@ -319,7 +352,7 @@ exports.bulkGenerateRent = async (req, res) => {
     }
 
     res.json({
-      message: `Generated ${createdRecords.length} monthly rent record(s) for ${month}`,
+      message: `Generated ${createdRecords.length} day-based rent record(s) for ${month}`,
       createdCount: createdRecords.length,
       records: createdRecords,
     });

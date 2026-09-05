@@ -132,7 +132,7 @@ export default function AvailabilityCalendar({
         </div>
         <div className="legend-item">
           <span className="legend-dot booked"></span>
-          <span>Booked / Blocked</span>
+          <span>{readOnly ? 'Booked / Unavailable' : 'Booked / Blocked'}</span>
         </div>
       </div>
 

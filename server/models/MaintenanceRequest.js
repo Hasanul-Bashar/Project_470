@@ -15,6 +15,7 @@ const MaintenanceRequestSchema = new mongoose.Schema(
 
     landlordId: { type: String, required: true },
     landlordName: { type: String, default: 'Landlord' },
+    landlordEmail: { type: String, default: '' },
 
     listingId: {
       type: mongoose.Schema.Types.ObjectId,

@@ -14,16 +14,22 @@ const AgreementSchema = new mongoose.Schema(
       index: true,
     },
 
+    // ── Passkey (Tenant Access Code) ─────────────────────────
+    passkey:          { type: String, default: '', index: true },
+    passkeyClaimedBy: { type: String, default: '' },  // tenant user id
+    passkeyClaimedAt: { type: Date,   default: null },
+    isClaimed:        { type: Boolean, default: false },
+
     // Landlord Details
     landlordId:    { type: String, required: true },
     landlordName:  { type: String, required: true },
     landlordEmail: { type: String, required: true },
     landlordPhone: { type: String, default: '+880 1711-000000' },
 
-    // Tenant Details
-    tenantId:    { type: String, required: true },
-    tenantName:  { type: String, required: true },
-    tenantEmail: { type: String, required: true },
+    // Tenant Details (pre-filled by landlord; updated when tenant claims via passkey)
+    tenantId:    { type: String, default: '' },
+    tenantName:  { type: String, default: 'Pending Tenant' },
+    tenantEmail: { type: String, default: '' },
     tenantPhone: { type: String, default: '+880 1819-111222' },
 
     // Property Details
@@ -35,7 +41,7 @@ const AgreementSchema = new mongoose.Schema(
     // Lease & Payment Terms
     rentAmount:       { type: Number, required: true },
     depositAmount:    { type: Number, required: true },
-    paymentDueDate:   { type: Number, default: 5 }, // e.g. 5th of each month
+    paymentDueDate:   { type: Number, default: 5 },
     startDate:        { type: Date, required: true },
     endDate:          { type: Date, required: true },
     leaseTermMonths:  { type: Number, default: 12 },
@@ -46,9 +52,13 @@ const AgreementSchema = new mongoose.Schema(
     // State & Security
     status: {
       type: String,
-      enum: ['Draft', 'Finalized', 'Signed', 'Terminated'],
-      default: 'Draft',
+      enum: ['pending_claim', 'pending_tenant', 'pending_admin', 'approved', 'rejected', 'Draft', 'Finalized', 'Signed', 'Terminated'],
+      default: 'pending_claim',
     },
+
+    tenantAgreedAt:  { type: Date, default: null },
+    adminApprovedAt: { type: Date, default: null },
+    rejectionReason: { type: String, default: '' },
 
     // Tamper-Evident SHA-256 Cryptographic Hash
     sha256Hash:     { type: String, default: '' },

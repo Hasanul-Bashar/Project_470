@@ -67,7 +67,7 @@ export default function MaintenanceTracker() {
   const [activeRequest, setActiveRequest] = useState(null);
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [stageFormData, setStageFormData] = useState({
-    status: 'In Progress',
+    status: 'Submitted',
     landlordNotes: '',
     scheduledDate: '',
     cost: '',
@@ -155,6 +155,20 @@ export default function MaintenanceTracker() {
     }
   };
 
+  const handleQuickAcknowledge = async (item) => {
+    try {
+      await updateMaintenanceStage(item._id, {
+        status: 'Acknowledged',
+        note: 'Landlord acknowledged preliminary submitted ticket.',
+      });
+      setSuccessMsg(`Issue '${item.title}' acknowledged by Landlord.`);
+      fetchRequests();
+      setTimeout(() => setSuccessMsg(''), 4000);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Error acknowledging request');
+    }
+  };
+
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this maintenance request?')) return;
     try {
@@ -186,6 +200,115 @@ export default function MaintenanceTracker() {
         return <span className="badge" style={{ background: '#eab30822', color: '#eab308', border: '1px solid #eab30844' }}>🟡 Medium</span>;
       default:
         return <span className="badge" style={{ background: '#10b98122', color: '#10b981', border: '1px solid #10b98144' }}>🟢 Low</span>;
+    }
+  };
+
+  const getStatusBadge = (st) => {
+    switch (st) {
+      case 'Submitted':
+        return (
+          <span
+            className="badge"
+            style={{
+              background: 'rgba(59, 130, 246, 0.15)',
+              color: '#60a5fa',
+              border: '1px solid rgba(59, 130, 246, 0.35)',
+              fontWeight: 700,
+              fontSize: '0.78rem',
+              padding: '0.2rem 0.6rem',
+              borderRadius: '8px',
+            }}
+          >
+            📩 Submitted (Preliminary)
+          </span>
+        );
+      case 'Acknowledged':
+        return (
+          <span
+            className="badge"
+            style={{
+              background: 'rgba(139, 92, 246, 0.15)',
+              color: '#a78bfa',
+              border: '1px solid rgba(139, 92, 246, 0.35)',
+              fontWeight: 600,
+              fontSize: '0.78rem',
+              padding: '0.2rem 0.6rem',
+              borderRadius: '8px',
+            }}
+          >
+            👁️ Acknowledged
+          </span>
+        );
+      case 'In Progress':
+        return (
+          <span
+            className="badge"
+            style={{
+              background: 'rgba(234, 179, 8, 0.15)',
+              color: '#facc15',
+              border: '1px solid rgba(234, 179, 8, 0.35)',
+              fontWeight: 600,
+              fontSize: '0.78rem',
+              padding: '0.2rem 0.6rem',
+              borderRadius: '8px',
+            }}
+          >
+            🛠️ In Progress
+          </span>
+        );
+      case 'Scheduled':
+        return (
+          <span
+            className="badge"
+            style={{
+              background: 'rgba(6, 182, 212, 0.15)',
+              color: '#38bdf8',
+              border: '1px solid rgba(6, 182, 212, 0.35)',
+              fontWeight: 600,
+              fontSize: '0.78rem',
+              padding: '0.2rem 0.6rem',
+              borderRadius: '8px',
+            }}
+          >
+            📅 Scheduled
+          </span>
+        );
+      case 'Resolved':
+        return (
+          <span
+            className="badge"
+            style={{
+              background: 'rgba(16, 185, 129, 0.15)',
+              color: '#34d399',
+              border: '1px solid rgba(16, 185, 129, 0.35)',
+              fontWeight: 700,
+              fontSize: '0.78rem',
+              padding: '0.2rem 0.6rem',
+              borderRadius: '8px',
+            }}
+          >
+            ✅ Resolved
+          </span>
+        );
+      case 'Cancelled':
+        return (
+          <span
+            className="badge"
+            style={{
+              background: 'rgba(239, 68, 68, 0.15)',
+              color: '#f87171',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
+              fontWeight: 600,
+              fontSize: '0.78rem',
+              padding: '0.2rem 0.6rem',
+              borderRadius: '8px',
+            }}
+          >
+            ❌ Cancelled
+          </span>
+        );
+      default:
+        return <span className="badge">{st}</span>;
     }
   };
 
@@ -382,13 +505,14 @@ export default function MaintenanceTracker() {
                           {reqItem.title}
                         </h3>
                         {getUrgencyBadge(reqItem.urgency)}
+                        {getStatusBadge(reqItem.status)}
                       </div>
                       <div style={{ fontSize: '0.82rem', color: '#94a3b8', marginTop: '0.2rem' }}>
                         📍 {reqItem.listingTitle} | Reported by <strong>{reqItem.tenantName}</strong> ({reqItem.tenantEmail})
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
                       <button
                         className="btn btn-sm btn-outline"
                         onClick={() => setTimelineRequest(reqItem)}
@@ -397,6 +521,23 @@ export default function MaintenanceTracker() {
                       >
                         📜 History Timeline ({reqItem.statusHistory?.length || 1})
                       </button>
+
+                      {canManage && reqItem.status === 'Submitted' && (
+                        <button
+                          className="btn btn-sm"
+                          onClick={() => handleQuickAcknowledge(reqItem)}
+                          style={{
+                            fontSize: '0.8rem',
+                            background: 'rgba(59, 130, 246, 0.2)',
+                            color: '#60a5fa',
+                            border: '1px solid rgba(59, 130, 246, 0.4)',
+                            fontWeight: 600,
+                          }}
+                          title="Acknowledge this preliminary submitted request"
+                        >
+                          👁️ Acknowledge Issue
+                        </button>
+                      )}
 
                       {canManage && (
                         <button
@@ -434,6 +575,23 @@ export default function MaintenanceTracker() {
                     border: '1px solid #232635',
                     marginBottom: '1rem',
                   }}>
+                    {reqItem.status === 'Submitted' && (
+                      <div style={{
+                        fontSize: '0.78rem',
+                        color: '#93c5fd',
+                        background: 'rgba(59, 130, 246, 0.08)',
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        marginBottom: '0.75rem',
+                        borderLeft: '3px solid #3b82f6',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                      }}>
+                        <span>ℹ️ <strong>Preliminary Submission:</strong> Stays in "Submitted" status awaiting Landlord review and acknowledgment.</span>
+                      </div>
+                    )}
+
                     <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 600, marginBottom: '0.75rem' }}>
                       DEFINED REPAIR STAGES PIPELINE:
                     </div>
@@ -478,7 +636,7 @@ export default function MaintenanceTracker() {
                               {idx === 3 && '📅'}
                               {idx === 4 && '✅'}
                             </div>
-                            {st}
+                            {st === 'Submitted' ? 'Submitted (Preliminary)' : st}
                           </div>
                         );
                       })}
@@ -649,7 +807,7 @@ export default function MaintenanceTracker() {
                     value={stageFormData.status}
                     onChange={(e) => setStageFormData({ ...stageFormData, status: e.target.value })}
                   >
-                    <option value="Submitted">📩 1. Submitted</option>
+                    <option value="Submitted">📩 1. Submitted (Preliminary)</option>
                     <option value="Acknowledged">👁️ 2. Acknowledged</option>
                     <option value="In Progress">🛠️ 3. In Progress</option>
                     <option value="Scheduled">📅 4. Scheduled</option>
