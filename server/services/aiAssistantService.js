@@ -1,5 +1,31 @@
 const Listing = require('../models/Listing');
 
+const RENTAL_TERMS = [
+  'rent', 'rental', 'property', 'properties', 'listing', 'listings', 'flat',
+  'apartment', 'house', 'home', 'room', 'bedroom', 'bhk', 'tenant', 'landlord',
+  'lease', 'bachelor', 'sublet', 'neighborhood', 'area', 'location', 'budget',
+  'price', 'parking', 'balcony', 'generator', 'lift', 'furnished', 'available',
+  'availability', 'booking', 'move', 'mirpur', 'dhanmondi', 'gulshan', 'banani',
+  'uttara', 'bashundhara', 'mohammadpur', 'badda', 'mohakhali', 'lalmatia',
+  'rampura', 'malibagh', 'baridhara', 'khilkhet', 'farmgate', 'motijheel',
+  'azimpur', 'shyamoli',
+];
+
+const RENTAL_GREETING = /^(hi|hello|hey|assalamu alaikum|salam|good morning|good afternoon|good evening)[!.\s]*$/i;
+
+function isRentalRelated(message, currentFilters = {}) {
+  if (Object.values(currentFilters).some((value) => {
+    return value !== null && value !== undefined && (Array.isArray(value) ? value.length > 0 : value !== '');
+  })) {
+    return true;
+  }
+
+  const normalized = message.toLowerCase();
+  return !RENTAL_GREETING.test(normalized) && RENTAL_TERMS.some((term) => {
+    return new RegExp(`\\b${term}\\b`, 'i').test(normalized);
+  });
+}
+
 /**
  * Multi-Provider LLM & Grounded Search Service
  * Cascades through configured providers:
@@ -20,7 +46,7 @@ async function callLlm({ systemInstruction, prompt, jsonMode = false }) {
       name: 'Google Gemini (Primary)',
       type: 'gemini',
       apiKey: process.env.GEMINI_API_KEY.trim(),
-      model: process.env.GEMINI_MODEL || 'gemini-1.5-flash',
+      model: process.env.GEMINI_MODEL || 'gemini-3.6-flash',
     });
   }
 
@@ -29,7 +55,7 @@ async function callLlm({ systemInstruction, prompt, jsonMode = false }) {
       name: 'Google Gemini (Backup)',
       type: 'gemini',
       apiKey: process.env.GEMINI_API_KEY_BACKUP.trim(),
-      model: process.env.GEMINI_MODEL || 'gemini-1.5-flash',
+      model: process.env.GEMINI_MODEL || 'gemini-3.6-flash',
     });
   }
 
@@ -103,7 +129,7 @@ async function callGemini({ apiKey, model, systemInstruction, prompt, jsonMode }
     const { GoogleGenerativeAI } = require('@google/generative-ai');
     const genAI = new GoogleGenerativeAI(apiKey);
     const modelInstance = genAI.getGenerativeModel({
-      model: model || 'gemini-1.5-flash',
+      model: model || 'gemini-3.6-flash',
       systemInstruction: systemInstruction || undefined,
       generationConfig: jsonMode ? { responseMimeType: 'application/json' } : undefined,
     });
@@ -112,7 +138,7 @@ async function callGemini({ apiKey, model, systemInstruction, prompt, jsonMode }
     return resp.response.text();
   } catch (sdkErr) {
     // Fallback to direct Gemini REST API if SDK has any environment issue
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model || 'gemini-1.5-flash'}:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model || 'gemini-3.6-flash'}:generateContent?key=${apiKey}`;
     const body = {
       contents: [{ role: 'user', parts: [{ text: `${systemInstruction ? `[System: ${systemInstruction}]\n\n` : ''}${prompt}` }] }],
       generationConfig: jsonMode ? { responseMimeType: 'application/json' } : {},
@@ -252,7 +278,7 @@ function ruleBasedFilterExtractor(text, currentFilters = {}) {
     bedrooms: currentFilters.bedrooms || null,
     amenities: [...(currentFilters.amenities || [])],
     keywords: [...(currentFilters.keywords || [])],
-    _provider: 'Local Rule Engine (No API Key)',
+    _provider: 'Local Rule Engine (Provider unavailable or no API key)',
   };
 
   // Location detection in Dhaka
@@ -463,7 +489,7 @@ Generate your grounded response to the tenant:`;
   // Fallback template response if no LLM key or provider failed
   return {
     reply: formatRuleBasedResponse(listings, filters, relaxedResults),
-    provider: 'Local Rule Engine (No API Key)',
+    provider: 'Local Rule Engine (Provider unavailable or no API key)',
   };
 }
 
@@ -511,6 +537,16 @@ function formatRuleBasedResponse(listings, filters, relaxedResults = []) {
 
 // ── Main Public Pipeline Method ───────────────────────────────────────────────
 async function processAssistantChat({ message, history = [], currentFilters = {} }) {
+  if (!isRentalRelated(message, currentFilters)) {
+    return {
+      reply: "I'm RentEase's rental assistant. I can help you find verified rental properties, compare areas, budgets, bedrooms, amenities, and availability. What kind of property are you looking for?",
+      filters: currentFilters,
+      listings: [],
+      isRelaxed: false,
+      provider: 'Rental Scope Guard',
+    };
+  }
+
   // Step 1: Parse natural language into structured filters
   const parsedFilters = await parseNaturalLanguageQuery(message, history, currentFilters);
 

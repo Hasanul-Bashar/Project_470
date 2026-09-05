@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
-    "seed:admin": "node scripts/seed-admin-demo.js"
+    "seed:admin": "node scripts/seed-admin-demo.js",
+    "seed:demo": "node scripts/seed-demo.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
